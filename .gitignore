@@ -1,0 +1,6 @@
+/.aws-sam/
+/target/
+**/target/
+.DS_Store
+samconfig.toml
+samconfig.yaml

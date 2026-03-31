@@ -1,0 +1,455 @@
+use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
+use serverless_otlp_forwarder_core::telemetry::TelemetryData;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use tracing::warn;
+
+use crate::otlp;
+
+pub const MAX_PUT_RECORDS: usize = 500;
+const WINDOW_STATE_KEY: &str = "window_state";
+
+#[derive(Debug, Default)]
+pub struct ParsedBatch {
+    pub telemetry_items: Vec<TelemetryData>,
+    pub emitted_trace_ids: BTreeSet<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PartitionedSpanRecord {
+    pub source_log_group: String,
+    pub source_event_id: String,
+    pub trace_id: String,
+    pub record: JsonValue,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct StoredSpanRecord {
+    pub source_log_group: String,
+    pub record: JsonValue,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct PendingDecoratorLinks {
+    pub links: Vec<JsonValue>,
+    pub decorator_records: usize,
+}
+
+impl PendingDecoratorLinks {
+    pub fn register_decorator_record(&mut self, links: &[JsonValue]) -> anyhow::Result<()> {
+        self.decorator_records += 1;
+        let mut merged = std::mem::take(&mut self.links);
+        merged.extend(links.iter().cloned());
+        self.links = normalize_links(merged)?;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct TraceAggregate {
+    pub ordinary_spans: Vec<StoredSpanRecord>,
+    pub linkable_targets: BTreeMap<String, StoredSpanRecord>,
+    pub pending_decorators: BTreeMap<String, PendingDecoratorLinks>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct RelayWindowState {
+    pub seen_event_ids: BTreeSet<String>,
+    pub traces: BTreeMap<String, TraceAggregate>,
+}
+
+#[derive(Debug, Default)]
+pub struct RelayFinalizeResult {
+    pub parsed_batch: ParsedBatch,
+    pub late_decorators_dropped: usize,
+}
+
+impl RelayWindowState {
+    pub fn from_response_state(response_state: &HashMap<String, String>) -> anyhow::Result<Self> {
+        let Some(serialized) = response_state.get(WINDOW_STATE_KEY) else {
+            return Ok(Self::default());
+        };
+
+        serde_json::from_str(serialized).context("Failed to deserialize relay window state")
+    }
+
+    pub fn to_response_state(&self) -> anyhow::Result<HashMap<String, String>> {
+        let mut response_state = HashMap::new();
+        response_state.insert(
+            WINDOW_STATE_KEY.to_string(),
+            serde_json::to_string(self).context("Failed to serialize relay window state")?,
+        );
+        Ok(response_state)
+    }
+
+    pub fn serialized_size_bytes(&self) -> anyhow::Result<usize> {
+        Ok(serde_json::to_vec(self)
+            .context("Failed to serialize relay window state for sizing")?
+            .len())
+    }
+
+    pub fn record_is_new(&mut self, source_event_id: String) -> bool {
+        self.seen_event_ids.insert(source_event_id)
+    }
+
+    pub fn apply_record(
+        &mut self,
+        partitioned_record: PartitionedSpanRecord,
+    ) -> anyhow::Result<()> {
+        let trace = self
+            .traces
+            .entry(partitioned_record.trace_id.clone())
+            .or_default();
+
+        let record = partitioned_record.record;
+        if is_managed_link_decorator(&record) {
+            let Some(target_span_id) = decorator_target_span_id(&record) else {
+                warn!("Managed-link decorator missing traceId/target_id, skipping");
+                return Ok(());
+            };
+
+            trace
+                .pending_decorators
+                .entry(target_span_id)
+                .or_default()
+                .register_decorator_record(&decorator_links(&record))?;
+            return Ok(());
+        }
+
+        if !is_completed_span(&record) {
+            return Ok(());
+        }
+
+        let stored = StoredSpanRecord {
+            source_log_group: partitioned_record.source_log_group,
+            record,
+        };
+
+        if is_linkable_target(&stored.record) {
+            let Some(span_id) = span_id_of_record(&stored.record) else {
+                warn!("Linkable completed span missing traceId/spanId, skipping");
+                return Ok(());
+            };
+            upsert_target_record(&mut trace.linkable_targets, span_id, stored);
+        } else {
+            trace.ordinary_spans.push(stored);
+        }
+
+        Ok(())
+    }
+
+    pub fn finalize(self) -> RelayFinalizeResult {
+        let mut finalized = RelayFinalizeResult::default();
+
+        for (trace_id, aggregate) in self.traces {
+            for ordinary_span in aggregate.ordinary_spans {
+                push_telemetry_item(
+                    &mut finalized.parsed_batch,
+                    trace_id.as_str(),
+                    ordinary_span.record,
+                    ordinary_span.source_log_group.as_str(),
+                );
+            }
+
+            let mut pending_decorators = aggregate.pending_decorators;
+            for (span_id, target) in aggregate.linkable_targets {
+                let mut record = target.record;
+                if let Some(pending_links) = pending_decorators.remove(&span_id) {
+                    merge_links_into_target(&mut record, &pending_links.links);
+                }
+
+                push_telemetry_item(
+                    &mut finalized.parsed_batch,
+                    trace_id.as_str(),
+                    record,
+                    target.source_log_group.as_str(),
+                );
+            }
+
+            finalized.late_decorators_dropped += pending_decorators
+                .values()
+                .map(|pending| pending.decorator_records)
+                .sum::<usize>();
+        }
+
+        finalized
+    }
+}
+
+fn push_telemetry_item(
+    parsed_batch: &mut ParsedBatch,
+    trace_id: &str,
+    record: JsonValue,
+    source: &str,
+) {
+    match build_telemetry_item(record, source) {
+        Ok(item) => {
+            parsed_batch.emitted_trace_ids.insert(trace_id.to_string());
+            parsed_batch.telemetry_items.push(item);
+        }
+        Err(err) => warn!("Failed to convert span to OTLP, skipping record: {err}"),
+    }
+}
+
+pub fn build_telemetry_item(record: JsonValue, source: &str) -> anyhow::Result<TelemetryData> {
+    Ok(TelemetryData {
+        source: source.to_string(),
+        endpoint: String::new(),
+        payload: otlp::convert_span_to_otlp_protobuf(record)?,
+        content_type: "application/x-protobuf".to_string(),
+        content_encoding: None,
+    })
+}
+
+pub fn trace_id_of_record(record: &JsonValue) -> Option<String> {
+    record.get("traceId")?.as_str().map(str::to_string)
+}
+
+pub fn span_id_of_record(record: &JsonValue) -> Option<String> {
+    record.get("spanId")?.as_str().map(str::to_string)
+}
+
+pub fn record_richness(record: &JsonValue) -> usize {
+    let Some(record) = record.as_object() else {
+        return 0;
+    };
+
+    record
+        .get("attributes")
+        .and_then(JsonValue::as_object)
+        .map(|attrs| attrs.len())
+        .unwrap_or_default()
+        + record
+            .get("resource")
+            .and_then(|value| value.get("attributes"))
+            .and_then(JsonValue::as_object)
+            .map(|attrs| attrs.len())
+            .unwrap_or_default()
+        + record
+            .get("links")
+            .and_then(JsonValue::as_array)
+            .map(|links| links.len())
+            .unwrap_or_default()
+        + record
+            .get("events")
+            .and_then(JsonValue::as_array)
+            .map(|events| events.len())
+            .unwrap_or_default()
+}
+
+pub fn merge_links_into_target(target: &mut JsonValue, links: &[JsonValue]) {
+    let Some(target_object) = target.as_object_mut() else {
+        return;
+    };
+
+    let existing = target_object
+        .remove("links")
+        .and_then(|value| value.as_array().cloned())
+        .unwrap_or_default();
+
+    let mut merged = existing;
+    merged.extend(links.iter().cloned());
+    let normalized = normalize_links(merged).unwrap_or_else(|_| links.to_vec());
+    target_object.insert("links".to_string(), JsonValue::Array(normalized));
+}
+
+pub fn is_completed_span(record: &JsonValue) -> bool {
+    record
+        .get("endTimeUnixNano")
+        .map(|value| !value.is_null())
+        .unwrap_or(false)
+}
+
+pub fn is_linkable_target(record: &JsonValue) -> bool {
+    record
+        .get("_aws")
+        .and_then(|value| value.get("xray"))
+        .and_then(|value| value.get("linking"))
+        .and_then(JsonValue::as_bool)
+        .unwrap_or(false)
+        || record
+            .get("attributes")
+            .and_then(JsonValue::as_object)
+            .and_then(|attrs| attrs.get("aws.internal"))
+            .and_then(JsonValue::as_object)
+            .and_then(|internal| internal.get("linking"))
+            .and_then(JsonValue::as_bool)
+            .unwrap_or(false)
+}
+
+pub fn is_managed_link_decorator(record: &JsonValue) -> bool {
+    record
+        .get("_aws")
+        .and_then(|value| value.get("xray"))
+        .and_then(|value| value.get("decorator_type"))
+        .and_then(JsonValue::as_str)
+        == Some("managed_link")
+}
+
+pub fn decorator_target_span_id(record: &JsonValue) -> Option<String> {
+    record
+        .get("_aws")
+        .and_then(|value| value.get("xray"))
+        .and_then(|value| value.get("target_id"))
+        .and_then(JsonValue::as_str)
+        .map(str::to_string)
+}
+
+pub fn decorator_links(record: &JsonValue) -> Vec<JsonValue> {
+    record
+        .get("links")
+        .and_then(JsonValue::as_array)
+        .cloned()
+        .unwrap_or_default()
+}
+
+fn upsert_target_record(
+    targets: &mut BTreeMap<String, StoredSpanRecord>,
+    span_id: String,
+    record: StoredSpanRecord,
+) {
+    match targets.get(&span_id) {
+        Some(existing) if record_richness(&existing.record) >= record_richness(&record.record) => {}
+        _ => {
+            targets.insert(span_id, record);
+        }
+    }
+}
+
+fn normalize_links(mut links: Vec<JsonValue>) -> anyhow::Result<Vec<JsonValue>> {
+    links.retain(|link| {
+        link.get("traceId").and_then(JsonValue::as_str).is_some()
+            && link.get("spanId").and_then(JsonValue::as_str).is_some()
+    });
+
+    links.sort_by(|left, right| {
+        let left_trace = left
+            .get("traceId")
+            .and_then(JsonValue::as_str)
+            .unwrap_or_default();
+        let left_span = left
+            .get("spanId")
+            .and_then(JsonValue::as_str)
+            .unwrap_or_default();
+        let right_trace = right
+            .get("traceId")
+            .and_then(JsonValue::as_str)
+            .unwrap_or_default();
+        let right_span = right
+            .get("spanId")
+            .and_then(JsonValue::as_str)
+            .unwrap_or_default();
+
+        (left_trace, left_span).cmp(&(right_trace, right_span))
+    });
+
+    let mut deduped = Vec::new();
+    let mut seen = BTreeSet::new();
+    for link in links {
+        let trace_id = link
+            .get("traceId")
+            .and_then(JsonValue::as_str)
+            .unwrap_or_default();
+        let span_id = link
+            .get("spanId")
+            .and_then(JsonValue::as_str)
+            .unwrap_or_default();
+        if seen.insert(format!("{trace_id}:{span_id}")) {
+            deduped.push(link);
+        }
+    }
+
+    Ok(deduped)
+}
+
+use anyhow::Context;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn linkable_target_fixture() -> JsonValue {
+        serde_json::from_str(include_str!(
+            "../tests/fixtures/completed_linkable_target.json"
+        ))
+        .expect("target fixture should parse")
+    }
+
+    fn decorator_fixture() -> JsonValue {
+        serde_json::from_str(include_str!(
+            "../tests/fixtures/managed_link_decorator.json"
+        ))
+        .expect("decorator fixture should parse")
+    }
+
+    #[test]
+    fn finalize_merges_links_into_linkable_target() {
+        let mut state = RelayWindowState::default();
+        let trace_id =
+            trace_id_of_record(&linkable_target_fixture()).expect("trace id should exist");
+
+        state.record_is_new("event-1".to_string());
+        state
+            .apply_record(PartitionedSpanRecord {
+                source_log_group: "aws/spans".to_string(),
+                source_event_id: "event-1".to_string(),
+                trace_id: trace_id.clone(),
+                record: linkable_target_fixture(),
+            })
+            .expect("target record should apply");
+        state.record_is_new("event-2".to_string());
+        state
+            .apply_record(PartitionedSpanRecord {
+                source_log_group: "aws/spans".to_string(),
+                source_event_id: "event-2".to_string(),
+                trace_id: trace_id.clone(),
+                record: decorator_fixture(),
+            })
+            .expect("decorator record should apply");
+
+        let finalized = state.finalize();
+
+        assert_eq!(finalized.late_decorators_dropped, 0);
+        assert_eq!(finalized.parsed_batch.telemetry_items.len(), 1);
+    }
+
+    #[test]
+    fn finalize_counts_late_decorators_without_target() {
+        let decorator = decorator_fixture();
+        let trace_id = trace_id_of_record(&decorator).expect("trace id should exist");
+        let mut state = RelayWindowState::default();
+
+        state.record_is_new("event-1".to_string());
+        state
+            .apply_record(PartitionedSpanRecord {
+                source_log_group: "aws/spans".to_string(),
+                source_event_id: "event-1".to_string(),
+                trace_id,
+                record: decorator,
+            })
+            .expect("decorator record should apply");
+
+        let finalized = state.finalize();
+        assert_eq!(finalized.parsed_batch.telemetry_items.len(), 0);
+        assert_eq!(finalized.late_decorators_dropped, 1);
+    }
+
+    #[test]
+    fn merge_links_into_target_deduplicates_by_trace_and_span() {
+        let mut target = json!({});
+        let links = vec![
+            json!({"traceId": "t1", "spanId": "s1"}),
+            json!({"traceId": "t1", "spanId": "s1", "flags": 1}),
+            json!({"traceId": "t2", "spanId": "s2"}),
+        ];
+
+        merge_links_into_target(&mut target, &links);
+
+        let stored_links = target
+            .get("links")
+            .and_then(JsonValue::as_array)
+            .expect("links should exist");
+        assert_eq!(stored_links.len(), 2);
+    }
+}

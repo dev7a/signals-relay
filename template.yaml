@@ -1,0 +1,250 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: "AWS::Serverless-2016-10-31"
+Description: AWS Lambda functions that repartition Application Signals aws/spans logs through Kinesis and forward them to OpenTelemetry collectors
+
+Parameters:
+  SpanLogGroupName:
+    Type: String
+    Default: aws/spans
+    Description: Log group name for spans
+  OtlpTargetSecretArn:
+    Type: String
+    Default: ""
+    Description: Optional Secrets Manager ARN for the direct relay OTLP target secret. If empty, direct mode falls back to standard OTLP environment variables.
+  ExportMode:
+    Type: String
+    Default: direct
+    AllowedValues:
+      - direct
+      - collector
+    Description: Export path for the relay Lambda. Use direct for runtime OTLP export or collector to send through the upstream OpenTelemetry Lambda collector extension.
+  DeploymentId:
+    Type: String
+    Default: ""
+    Description: Optional no-op deployment marker. Change this value to force a new Lambda deployment and fresh execution environments after secret rotation.
+  VpcId:
+    Type: String
+    Description: (Optional) VPC ID for VPC deployment
+    Default: ""
+  SubnetIds:
+    Type: CommaDelimitedList
+    Description: (Optional) List of subnet IDs for VPC deployment
+    Default: ""
+  CollectorExtensionArn:
+    Type: String
+    Default: ""
+    Description: ARN of the upstream OpenTelemetry Lambda collector extension layer. Required when ExportMode=collector.
+
+Rules:
+  CollectorModeRequiresLayerArn:
+    Assertions:
+      - Assert: !Or
+          - !Equals [!Ref ExportMode, direct]
+          - !Not [!Equals [!Ref CollectorExtensionArn, ""]]
+        AssertDescription: CollectorExtensionArn must be set when ExportMode=collector.
+
+Conditions:
+  HasVpcConfig: !Not [!Equals [!Ref VpcId, ""]]
+  UseCollectorExport: !Equals [!Ref ExportMode, collector]
+  UseDirectExport: !Equals [!Ref ExportMode, direct]
+
+Resources:
+  PartitionerPublishFailureQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 300
+
+  PartitionerInvocationFailureQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 300
+
+  SpanRelayStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Sub "${AWS::StackName}-relay"
+      ShardCount: 1
+      RetentionPeriodHours: 24
+      StreamModeDetails:
+        StreamMode: PROVISIONED
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: HasVpcConfig
+    Properties:
+      GroupDescription: Security group for the aws/spans relay Lambda
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  ProcessorPartitionerFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: rust-cargolambda
+      BuildProperties:
+        Binary: span_processor_partitioner
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-partitioner"
+      Description: !Sub "Partitions aws/spans logs into Kinesis for AWS Account ${AWS::AccountId}"
+      CodeUri: processor/
+      Handler: bootstrap
+      Runtime: provided.al2023
+      Architectures:
+        - arm64
+      Tracing: Disabled
+      MemorySize: 256
+      Timeout: 60
+      LoggingConfig:
+        LogFormat: JSON
+        ApplicationLogLevel: INFO
+        SystemLogLevel: INFO
+      EventInvokeConfig:
+        MaximumEventAgeInSeconds: 3600
+        MaximumRetryAttempts: 0
+        DestinationConfig:
+          OnFailure:
+            Type: SQS
+            Destination: !GetAtt PartitionerInvocationFailureQueue.Arn
+      Environment:
+        Variables:
+          KINESIS_STREAM_NAME: !Ref SpanRelayStream
+          PARTITIONER_FAILURE_QUEUE_URL: !Ref PartitionerPublishFailureQueue
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - "kinesis:PutRecords"
+              Resource: !GetAtt SpanRelayStream.Arn
+            - Effect: Allow
+              Action:
+                - "sqs:SendMessage"
+              Resource:
+                - !GetAtt PartitionerPublishFailureQueue.Arn
+                - !GetAtt PartitionerInvocationFailureQueue.Arn
+
+  ProcessorRelayFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: rust-cargolambda
+      BuildProperties:
+        Binary: span_processor_relay
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-relay"
+      Description: !Sub "Aggregates repartitioned aws/spans records and forwards OTLP for AWS Account ${AWS::AccountId}"
+      CodeUri: processor/
+      Handler: bootstrap
+      Runtime: provided.al2023
+      Architectures:
+        - arm64
+      Tracing: Disabled
+      Timeout: 60
+      LoggingConfig:
+        LogFormat: JSON
+        ApplicationLogLevel: INFO
+        SystemLogLevel: INFO
+      Environment:
+        Variables:
+          DEPLOYMENT_ID: !Ref DeploymentId
+          LAMBDA_EXTENSION_SPAN_PROCESSOR_MODE: async
+          LAMBDA_TRACING_ENABLE_FMT_LAYER: false
+          OTEL_EXPORTER_OTLP_TRACES_COMPRESSION: gzip
+          OTEL_EXPORTER_OTLP_COMPRESSION_LEVEL: 6
+          OTLP_TARGET_SECRET_ARN: !If [UseDirectExport, !Ref OtlpTargetSecretArn, !Ref AWS::NoValue]
+          OTEL_EXPORTER_OTLP_ENDPOINT: !If [UseCollectorExport, http://localhost:4318, !Ref AWS::NoValue]
+          OTEL_EXPORTER_OTLP_PROTOCOL: !If [UseCollectorExport, http/protobuf, !Ref AWS::NoValue]
+          OPENTELEMETRY_COLLECTOR_CONFIG_URI: !If [UseCollectorExport, /opt/collector.yaml, !Ref AWS::NoValue]
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - "xray:PutTraceSegments"
+                - "xray:PutSpans"
+                - "xray:PutSpansForIndexing"
+              Resource: "*"
+            - !If
+              - UseDirectExport
+              - Effect: Allow
+                Action:
+                  - "secretsmanager:GetSecretValue"
+                Resource: !Ref OtlpTargetSecretArn
+              - !Ref AWS::NoValue
+            - !If
+              - UseCollectorExport
+              - Effect: Allow
+                Action:
+                  - "secretsmanager:GetSecretValue"
+                Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:collector/secrets*"
+              - !Ref AWS::NoValue
+      Layers:
+        - !If [UseCollectorExport, !Ref CollectorConfig, !Ref AWS::NoValue]
+        - !If [UseCollectorExport, !Ref CollectorExtensionArn, !Ref AWS::NoValue]
+      VpcConfig: !If
+        - HasVpcConfig
+        - SecurityGroupIds:
+            - !Ref SecurityGroup
+          SubnetIds: !Ref SubnetIds
+        - !Ref AWS::NoValue
+      Events:
+        RelayStreamEvent:
+          Type: Kinesis
+          Properties:
+            Stream: !GetAtt SpanRelayStream.Arn
+            StartingPosition: LATEST
+            BatchSize: 100
+            MaximumBatchingWindowInSeconds: 1
+            TumblingWindowInSeconds: 60
+            ParallelizationFactor: 1
+            Enabled: true
+
+  ProcessorPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ProcessorPartitionerFunction
+      Action: lambda:InvokeFunction
+      Principal: logs.amazonaws.com
+      SourceArn: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${SpanLogGroupName}:*
+
+  ProcessorSubscription:
+    Type: AWS::Logs::SubscriptionFilter
+    DependsOn:
+      - ProcessorPermission
+    Properties:
+      LogGroupName: !Ref SpanLogGroupName
+      FilterPattern: "{ (($.resource.attributes.['service.name'] = * || $.attributes.['aws.local.service'] = *) && $.attributes.['aws.xray.inprogress'] NOT EXISTS) || ($._aws.xray.decorator_type = \"managed_link\") }"
+      DestinationArn: !GetAtt ProcessorPartitionerFunction.Arn
+
+  CollectorConfig:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub "${AWS::StackName}-collector-config"
+      Description: Collector configuration layer for collector export mode
+      ContentUri: config/
+
+Outputs:
+  ProcessorPartitionerFunctionArn:
+    Description: ARN of the aws/spans partitioner Lambda function
+    Value: !GetAtt ProcessorPartitionerFunction.Arn
+
+  ProcessorRelayFunctionArn:
+    Description: ARN of the aws/spans relay Lambda function
+    Value: !GetAtt ProcessorRelayFunction.Arn
+
+  SpanRelayStreamArn:
+    Description: ARN of the provisioned Kinesis stream used between partitioner and relay
+    Value: !GetAtt SpanRelayStream.Arn
+
+  PartitionerPublishFailureQueueUrl:
+    Description: SQS queue URL used for per-record Kinesis publish failures
+    Value: !Ref PartitionerPublishFailureQueue
+
+  PartitionerInvocationFailureQueueUrl:
+    Description: SQS queue URL used for unexpected async partitioner invocation failures
+    Value: !Ref PartitionerInvocationFailureQueue
+
+  SecurityGroupId:
+    Description: ID of the security group for the relay Lambda
+    Condition: HasVpcConfig
+    Value: !Ref SecurityGroup

@@ -1,0 +1,59 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: localhost:4317
+      http:
+        endpoint: localhost:4318
+
+exporters:
+  otlp_http/default:
+    endpoint: ${secretsmanager:collector/secrets#endpoint}
+    headers: ${secretsmanager:collector/secrets#headers}
+    compression: gzip
+
+service:
+  pipelines:
+    traces:
+      receivers:
+        - otlp
+      exporters:
+        - otlp_http/default
+    logs:
+      receivers:
+        - otlp
+      exporters:
+        - otlp_http/default
+    metrics:
+      receivers:
+        - otlp
+      exporters:
+        - otlp_http/default
+  telemetry:
+    resource:
+      service.name: ${env:AWS_LAMBDA_FUNCTION_NAME}/collector
+    metrics:
+      level: detailed
+      readers:
+        - periodic:
+            exporter:
+              otlp:
+                protocol: http/protobuf
+                endpoint: http://localhost:4318
+    logs:
+      level: DEBUG
+      processors:
+        - batch:
+            exporter:
+              otlp:
+                protocol: http/protobuf
+                endpoint: http://localhost:4318
+    traces:
+      propagators:
+        - tracecontext
+      processors:
+        - batch:
+            exporter:
+              otlp:
+                protocol: http/protobuf
+                endpoint: http://localhost:4318

@@ -1,0 +1,36 @@
+version = 0.1
+
+[default.build.parameters]
+cached = true
+parallel = false
+
+[default.validate.parameters]
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+region = "us-east-1"
+resolve_s3 = true
+stack_name = "signals-relay"
+parameter_overrides = [
+  "ExportMode=direct",
+  "OtlpTargetSecretArn=arn:aws:secretsmanager:us-east-1:111111111111:secret:replace-me",
+  "DeploymentId=replace-me",
+]
+
+[collector.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+region = "us-east-1"
+resolve_s3 = true
+stack_name = "signals-relay"
+parameter_overrides = [
+  "ExportMode=collector",
+  "DeploymentId=replace-me",
+  "CollectorExtensionArn=arn:aws:lambda:us-east-1:184161586896:layer:opentelemetry-collector-arm64-0_21_0:1",
+]
+
+[default.global.parameters]
+beta_features = true
+stack_name = "signals-relay"
+tags = "version=0.1 application=signals-relay"

@@ -1,0 +1,60 @@
+{
+  "resource": {
+    "attributes": {
+      "aws.local.service": "demo-worker",
+      "cloud.region": "us-east-1",
+      "service.name": "demo-worker",
+      "faas.name": "demo-process-job",
+      "telemetry.sdk.name": "opentelemetry",
+      "telemetry.sdk.language": "python",
+      "cloud.provider": "aws",
+      "faas.instance": "2026/03/07/[$LATEST]warm-container",
+      "aws.log.group.names": "/aws/lambda/demo-process-job",
+      "telemetry.sdk.version": "1.39.1",
+      "faas.version": "$LATEST",
+      "cloud.platform": "aws_lambda"
+    }
+  },
+  "scope": {
+    "name": "opentelemetry.instrumentation.botocore.s3",
+    "version": "0.60b1"
+  },
+  "traceId": "69abdc7e4a5137d6066480ed36f1757f",
+  "spanId": "bef19fd2d33048f4",
+  "parentSpanId": "c8f9ad7fc5d95528",
+  "flags": 256,
+  "name": "S3.PutObject",
+  "kind": "CLIENT",
+  "startTimeUnixNano": 1772870790158472257,
+  "endTimeUnixNano": 1772870790287535178,
+  "durationNano": 129062921,
+  "attributes": {
+    "aws.local.service": "demo-worker",
+    "rpc.service": "S3",
+    "aws.remote.resource.identifier": "demo-artifacts",
+    "aws.remote.resource.region": "us-east-1",
+    "aws.remote.operation": "PutObject",
+    "aws.local.environment": "lambda:default",
+    "server.address": "s3.amazonaws.com",
+    "aws.local.operation": "demo-process-job/FunctionHandler",
+    "aws.request_id": "0KP7BCJ2S2BNAYKG",
+    "aws.span.kind": "CLIENT",
+    "aws.auth.region": "us-east-1",
+    "rpc.method": "PutObject",
+    "server.port": 443,
+    "cloud.resource_id": "arn:aws:lambda:us-east-1:123456789012:function:demo-process-job",
+    "telemetry.extended": "true",
+    "rpc.system": "aws-api",
+    "aws.trace.flag.sampled": true,
+    "aws.remote.service": "AWS::S3",
+    "http.status_code": 200,
+    "aws.region": "us-east-1",
+    "aws.remote.resource.type": "AWS::S3::Bucket",
+    "retry_attempts": 0,
+    "PlatformType": "AWS::Lambda",
+    "aws.s3.bucket": "demo-artifacts"
+  },
+  "status": {
+    "code": "UNSET"
+  }
+}
