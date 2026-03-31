@@ -6,8 +6,10 @@ pub mod state;
 use anyhow::{Context, Result};
 use opentelemetry::{trace::Status, KeyValue};
 use serverless_otlp_forwarder_core::{
-    compact_telemetry_payloads, span_compactor::SpanCompactionConfig, InstrumentedHttpClient,
+    compact_telemetry_payloads, span_compactor::SpanCompactionConfig, telemetry::TelemetryData,
+    InstrumentedHttpClient,
 };
+use signals_relay_core::EncodedOtlpPayload;
 use state::ParsedBatch;
 use tracing::Span;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
@@ -49,7 +51,13 @@ pub async fn send_parsed_batch(
         return Ok(());
     }
 
-    let compacted = compact_telemetry_payloads(parsed_batch.telemetry_items, compaction_config)
+    let telemetry_items = parsed_batch
+        .telemetry_items
+        .into_iter()
+        .map(encoded_payload_to_telemetry_data)
+        .collect::<Vec<_>>();
+
+    let compacted = compact_telemetry_payloads(telemetry_items, compaction_config)
         .context("Failed to compact OTLP telemetry payloads")?;
 
     send_compacted_telemetry_batch(http_client, compacted, export_target)
@@ -64,4 +72,14 @@ pub async fn send_parsed_batch(
     );
 
     Ok(())
+}
+
+fn encoded_payload_to_telemetry_data(item: EncodedOtlpPayload) -> TelemetryData {
+    TelemetryData {
+        source: item.source,
+        endpoint: String::new(),
+        payload: item.payload,
+        content_type: item.content_type,
+        content_encoding: item.content_encoding,
+    }
 }

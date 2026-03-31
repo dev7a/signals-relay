@@ -1,0 +1,15 @@
+[package]
+name = "signals-relay-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+opentelemetry-proto.workspace = true
+prost.workspace = true
+tracing.workspace = true

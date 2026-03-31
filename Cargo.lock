@@ -2729,9 +2729,22 @@ dependencies = [
  "serde",
  "serde_json",
  "serverless-otlp-forwarder-core",
+ "signals-relay-core",
  "tokio",
  "tracing",
  "tracing-opentelemetry",
+]
+
+[[package]]
+name = "signals-relay-core"
+version = "0.9.0"
+dependencies = [
+ "anyhow",
+ "opentelemetry-proto",
+ "prost",
+ "serde",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]

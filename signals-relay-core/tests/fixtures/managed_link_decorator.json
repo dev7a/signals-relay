@@ -1,0 +1,38 @@
+{
+  "resource": {},
+  "traceId": "69abdc7e4a5137d6066480ed36f1757f",
+  "spanId": "0b0884b6cd6fcf50",
+  "name": "",
+  "kind": "INTERNAL",
+  "startTimeUnixNano": null,
+  "endTimeUnixNano": null,
+  "links": [
+    {
+      "traceId": "69abdc7e03d3b17f159d7d903674d38e",
+      "spanId": "3bd0df98dcdf8292",
+      "_aws": {
+        "xray": {
+          "reference_type": "parent"
+        }
+      }
+    }
+  ],
+  "status": {
+    "code": "UNSET"
+  },
+  "_aws": {
+    "xray": {
+      "reserved.type": "AWS::Lambda",
+      "names": [
+        "demo-process-job"
+      ],
+      "decorator_type": "managed_link",
+      "received_event_end_time": 1772870782.785,
+      "dwell_end_time": 1772870782.785,
+      "target_id": "203edb22b63dbd54",
+      "type": "decorator",
+      "account": "123456789012",
+      "reference_type": "child"
+    }
+  }
+}
