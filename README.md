@@ -5,6 +5,19 @@ Standalone AWS serverless pipeline that converts CloudWatch Application Signals 
 > [!NOTE]
 > This repository is experimental and is not recommended for production use without additional hardening.
 
+## Deliverables
+
+This repository presents two deliverables in the same repo with separate release tracks:
+
+- the reusable core crate, and
+- the deployable serverless SAM application.
+
+The app release flow in this repo focuses on packaging, publishing, and deploying the SAM application, while the core crate follows its own crate release path in the same repository.
+
+- Deployable serverless application: `template.yaml`, `samconfig.example.toml`, and the app release workflow under `.github/workflows/`
+- Release and consumer guidance: [docs/app-release.md](./docs/app-release.md)
+- Architecture overview: [docs/current-architecture.md](./docs/current-architecture.md)
+
 ## Telemetry Pipeline
 
 This repository deploys:
@@ -170,5 +183,6 @@ sam build --template-file template.yaml
 ## Further Reading
 
 - [Documentation index](./docs/README.md)
+- [App release and packaging](./docs/app-release.md)
 - [Current architecture](./docs/current-architecture.md)
 - [Why the current Kinesis and tumbling-window design was chosen](./docs/cloudwatch-lambda-partitioner-kinesis-tumbling-window.md)

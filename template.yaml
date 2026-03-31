@@ -1,6 +1,23 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: "AWS::Serverless-2016-10-31"
-Description: AWS Lambda functions that repartition Application Signals aws/spans logs through Kinesis and forward them to OpenTelemetry collectors
+Description: Deployable AWS SAM application that repartitions Application Signals aws/spans logs through Kinesis and forwards them to OpenTelemetry collectors
+
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: signals-relay
+    Description: Deployable AWS SAM application that converts Application Signals aws/spans records into OTLP trace payloads.
+    Author: dev7a
+    SpdxLicenseId: MIT
+    LicenseUrl: LICENSE
+    ReadmeUrl: README.md
+    Labels:
+      - cloudwatch
+      - opentelemetry
+      - tracing
+      - sam
+    HomePageUrl: https://github.com/dev7a/signals-relay
+    SourceCodeUrl: https://github.com/dev7a/signals-relay
+    SemanticVersion: 0.1.0
 
 Parameters:
   SpanLogGroupName:

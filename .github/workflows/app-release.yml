@@ -1,0 +1,128 @@
+name: app release
+
+on:
+  push:
+    tags:
+      - "app-v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Semantic version tag to publish, for example app-v1.2.3
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: us-east-1
+  SAM_CLI_TELEMETRY: "0"
+  RELEASE_ROOT: release
+
+jobs:
+  publish:
+    name: Package and publish the serverless app
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve semantic version
+        id: version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          case "$RELEASE_TAG" in
+            app-v*)
+              SEMANTIC_VERSION="${RELEASE_TAG#app-v}"
+              ;;
+            *)
+              echo "::error::Release tags must use the app-vX.Y.Z pattern."
+              exit 1
+              ;;
+          esac
+
+          if [[ ! "$SEMANTIC_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Resolved version '$SEMANTIC_VERSION' is not valid semantic versioning."
+            exit 1
+          fi
+
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$SEMANTIC_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set up the Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-lambda
+        run: cargo install cargo-lambda --locked
+
+      - name: Install AWS SAM CLI
+        run: python3 -m pip install --upgrade pip aws-sam-cli
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+
+      - name: Build the SAM application
+        run: sam build --template-file template.yaml
+
+      - name: Package the SAM application
+        id: package
+        shell: bash
+        env:
+          PACKAGE_BUCKET: ${{ secrets.SAR_ARTIFACT_BUCKET }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${PACKAGE_BUCKET:-}" ]]; then
+            echo "::error::SAR_ARTIFACT_BUCKET secret is required."
+            exit 1
+          fi
+
+          VERSION_DIR="$RELEASE_ROOT/$VERSION"
+          mkdir -p "$VERSION_DIR"
+
+          sam package \
+            --template-file .aws-sam/build/template.yaml \
+            --s3-bucket "$PACKAGE_BUCKET" \
+            --s3-prefix "signals-relay/app/$VERSION" \
+            --output-template-file "$VERSION_DIR/packaged.yaml"
+
+          cat > "$VERSION_DIR/manifest.json" <<EOF
+          {
+            "tag": "${{ steps.version.outputs.tag }}",
+            "version": "$VERSION",
+            "commit": "${{ github.sha }}",
+            "packagedTemplate": "packaged.yaml",
+            "repository": "https://github.com/dev7a/signals-relay"
+          }
+          EOF
+
+      - name: Publish to Serverless Application Repository
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          sam publish \
+            --template "$RELEASE_ROOT/$VERSION/packaged.yaml" \
+            --region "$AWS_REGION" \
+            --semantic-version "$VERSION"
+
+      - name: Upload versioned release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: signals-relay-app-${{ steps.version.outputs.version }}
+          path: ${{ env.RELEASE_ROOT }}/${{ steps.version.outputs.version }}
+          if-no-files-found: error
+          retention-days: 14
