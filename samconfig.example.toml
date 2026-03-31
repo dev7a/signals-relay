@@ -33,4 +33,4 @@ parameter_overrides = [
 [default.global.parameters]
 beta_features = true
 stack_name = "signals-relay"
-tags = "version=0.1 application=signals-relay"
+tags = "version=0.9.0 application=signals-relay"

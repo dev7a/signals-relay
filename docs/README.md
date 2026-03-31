@@ -4,7 +4,7 @@ Start with the root [README](../README.md) if you want to evaluate or deploy thi
 
 ## Start Here
 
-- [App release and packaging](./app-release.md): packaging, publishing, and consumer install/upgrade flow for the deployable SAM application
+- [Release and packaging](./release.md): coordinated packaging, publication, and consumer install/upgrade flow for the core crate artifact and the deployable SAM application
 - [Current architecture](./current-architecture.md): the implemented pipeline, export modes, failure handling, and tradeoffs
 - [Why the current architecture was chosen](./cloudwatch-lambda-partitioner-kinesis-tumbling-window.md): rationale for the Kinesis repartitioning and tumbling-window design
 
