@@ -34,6 +34,22 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.release_tag) || github.ref }}
 
+      - name: Resolve SAM template path
+        id: sam_template
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for candidate in template.yaml template.yml; do
+            if [[ -f "$candidate" ]]; then
+              echo "path=$candidate" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+
+          echo "::error::Could not find a SAM template file (expected template.yaml or template.yml)."
+          exit 1
+
       - name: Resolve semantic version
         id: version
         shell: bash
@@ -58,6 +74,7 @@ jobs:
         shell: bash
         env:
           EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+          SAM_TEMPLATE: ${{ steps.sam_template.outputs.path }}
         run: |
           set -euo pipefail
 
@@ -77,25 +94,12 @@ jobs:
             exit 1
           fi
 
-          sam_template=""
-          for candidate in template.yaml template.yml; do
-            if [[ -f "$candidate" ]]; then
-              sam_template="$candidate"
-              break
-            fi
-          done
-
-          if [[ -z "$sam_template" ]]; then
-            echo "::error::Could not find a SAM template file (expected template.yaml or template.yml)."
-            exit 1
-          fi
-
           sam_version="$(
-            sed -nE 's/^[[:space:]]*SemanticVersion:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$sam_template" | head -n1
+            sed -nE 's/^[[:space:]]*SemanticVersion:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$SAM_TEMPLATE" | head -n1
           )"
 
           if [[ -z "$sam_version" ]]; then
-            echo "::error::SAM template $sam_template is missing Metadata.AWS::ServerlessRepo::Application.SemanticVersion"
+            echo "::error::SAM template $SAM_TEMPLATE is missing Metadata.AWS::ServerlessRepo::Application.SemanticVersion"
             exit 1
           fi
 
@@ -146,12 +150,13 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
 
       - name: Build the SAM application
-        run: sam build --template-file template.yaml --beta-features
+        run: sam build --template-file "${{ steps.sam_template.outputs.path }}" --beta-features
 
       - name: Package the SAM application
         shell: bash
         env:
           PACKAGE_BUCKET: ${{ secrets.SAR_ARTIFACT_BUCKET }}
+          SAM_TEMPLATE: ${{ steps.sam_template.outputs.path }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
@@ -164,9 +169,10 @@ jobs:
           artifact_dir="$RELEASE_ROOT/$VERSION/app"
           mkdir -p "$artifact_dir"
           packaged_template="$artifact_dir/packaged.yaml"
+          built_template=".aws-sam/build/$SAM_TEMPLATE"
 
           sam package \
-            --template-file .aws-sam/build/template.yaml \
+            --template-file "$built_template" \
             --s3-bucket "$PACKAGE_BUCKET" \
             --s3-prefix "signals-relay/releases/$VERSION/app" \
             --output-template-file "$packaged_template"
