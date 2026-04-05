@@ -19,6 +19,8 @@ env:
   AWS_REGION: us-east-1
   SAM_CLI_TELEMETRY: "0"
   RELEASE_ROOT: release
+  AWS_SAM_CLI_VERSION: "1.157.1"
+  CARGO_LAMBDA_VERSION: "1.9.1"
 
 jobs:
   release:
@@ -51,7 +53,7 @@ jobs:
       - name: Set up the Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Verify workspace versions match tag
+      - name: Verify workspace and SAM versions match tag
         shell: bash
         env:
           EXPECTED_VERSION: ${{ steps.version.outputs.version }}
@@ -71,6 +73,33 @@ jobs:
           if [[ -n "$mismatches" ]]; then
             echo "::error::Workspace package versions do not match tag $EXPECTED_VERSION"
             echo "$mismatches"
+            exit 1
+          fi
+
+          sam_template=""
+          for candidate in template.yaml template.yml; do
+            if [[ -f "$candidate" ]]; then
+              sam_template="$candidate"
+              break
+            fi
+          done
+
+          if [[ -z "$sam_template" ]]; then
+            echo "::error::Could not find a SAM template file (expected template.yaml or template.yml)."
+            exit 1
+          fi
+
+          sam_version="$(
+            sed -nE 's/^[[:space:]]*SemanticVersion:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$sam_template" | head -n1
+          )"
+
+          if [[ -z "$sam_version" ]]; then
+            echo "::error::SAM template $sam_template is missing Metadata.AWS::ServerlessRepo::Application.SemanticVersion"
+            exit 1
+          fi
+
+          if [[ "$sam_version" != "$EXPECTED_VERSION" ]]; then
+            echo "::error::SAM template version $sam_version does not match tag $EXPECTED_VERSION"
             exit 1
           fi
 
@@ -104,10 +133,10 @@ jobs:
           EOF
 
       - name: Install cargo-lambda
-        run: cargo install cargo-lambda --locked
+        run: cargo install cargo-lambda --locked --version "$CARGO_LAMBDA_VERSION"
 
       - name: Install AWS SAM CLI
-        run: python3 -m pip install --upgrade pip aws-sam-cli
+        run: python3 -m pip install "aws-sam-cli==$AWS_SAM_CLI_VERSION"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -133,12 +162,38 @@ jobs:
 
           artifact_dir="$RELEASE_ROOT/$VERSION/app"
           mkdir -p "$artifact_dir"
+          packaged_template="$artifact_dir/packaged.yaml"
 
           sam package \
             --template-file .aws-sam/build/template.yaml \
             --s3-bucket "$PACKAGE_BUCKET" \
             --s3-prefix "signals-relay/releases/$VERSION/app" \
-            --output-template-file "$artifact_dir/packaged.yaml"
+            --output-template-file "$packaged_template"
+
+          packaged_semantic_version="$(
+            sed -nE 's/^[[:space:]]*SemanticVersion:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$packaged_template" | head -n1
+          )"
+          packaged_license_url="$(
+            sed -nE 's/^[[:space:]]*LicenseUrl:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$packaged_template" | head -n1
+          )"
+          packaged_readme_url="$(
+            sed -nE 's/^[[:space:]]*ReadmeUrl:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$packaged_template" | head -n1
+          )"
+
+          if [[ "$packaged_semantic_version" != "$VERSION" ]]; then
+            echo "::error::Packaged template SemanticVersion $packaged_semantic_version does not match tag version $VERSION"
+            exit 1
+          fi
+
+          if [[ ! "$packaged_license_url" =~ ^s3:// ]]; then
+            echo "::error::Packaged template LicenseUrl must be an s3:// URL, got '$packaged_license_url'"
+            exit 1
+          fi
+
+          if [[ ! "$packaged_readme_url" =~ ^s3:// ]]; then
+            echo "::error::Packaged template ReadmeUrl must be an s3:// URL, got '$packaged_readme_url'"
+            exit 1
+          fi
 
           cat > "$artifact_dir/manifest.json" <<EOF
           {

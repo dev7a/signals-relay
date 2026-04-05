@@ -16,23 +16,39 @@ use crate::telemetry::EncodedOtlpPayload;
 
 /// Decodes a hex string to bytes.
 fn decode_hex(value: &str) -> Result<Vec<u8>> {
-    let normalized = value.trim_start_matches("0x");
-    let normalized: String = normalized
-        .chars()
-        .filter(|ch| ch.is_ascii_hexdigit())
-        .collect();
+    let value = value.trim();
+    let normalized = value
+        .strip_prefix("0x")
+        .or_else(|| value.strip_prefix("0X"))
+        .unwrap_or(value);
 
-    let mut bytes = Vec::with_capacity(normalized.len() / 2);
-    for idx in (0..normalized.len()).step_by(2) {
-        if idx + 2 <= normalized.len() {
-            let byte = u8::from_str_radix(&normalized[idx..idx + 2], 16)
-                .map_err(|err| anyhow::anyhow!("Invalid hex string: {err}"))?;
-            bytes.push(byte);
-        } else if idx + 1 == normalized.len() {
-            let byte = u8::from_str_radix(&format!("{}0", &normalized[idx..idx + 1]), 16)
-                .map_err(|err| anyhow::anyhow!("Invalid hex string: {err}"))?;
-            bytes.push(byte);
+    let mut hex = String::with_capacity(normalized.len());
+    for ch in normalized.chars() {
+        if ch.is_ascii_hexdigit() {
+            hex.push(ch);
+            continue;
         }
+
+        if matches!(ch, ':' | '-' | '_') || ch.is_ascii_whitespace() {
+            continue;
+        }
+
+        return Err(anyhow::anyhow!(
+            "Invalid hex string: unexpected character `{ch}`"
+        ));
+    }
+
+    if hex.len() % 2 != 0 {
+        return Err(anyhow::anyhow!(
+            "Invalid hex string: odd number of hex digits"
+        ));
+    }
+
+    let mut bytes = Vec::with_capacity(hex.len() / 2);
+    for idx in (0..hex.len()).step_by(2) {
+        let byte = u8::from_str_radix(&hex[idx..idx + 2], 16)
+            .map_err(|err| anyhow::anyhow!("Invalid hex string: {err}"))?;
+        bytes.push(byte);
     }
 
     Ok(bytes)
@@ -397,8 +413,26 @@ mod tests {
         let prefixed = decode_hex("0x0123456789abcdef").unwrap();
         assert_eq!(prefixed, result);
 
-        let with_separators = decode_hex("01-23-45-67-89-ab-cd-ef").unwrap();
+        let with_separators = decode_hex("01-23:45_67 89-ab-cd-ef").unwrap();
         assert_eq!(with_separators, result);
+    }
+
+    #[test]
+    fn test_decode_hex_rejects_invalid_characters() {
+        let error = decode_hex("01-23-zz").unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "Invalid hex string: unexpected character `z`"
+        );
+    }
+
+    #[test]
+    fn test_decode_hex_rejects_odd_length() {
+        let error = decode_hex("123").unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "Invalid hex string: odd number of hex digits"
+        );
     }
 
     #[test]

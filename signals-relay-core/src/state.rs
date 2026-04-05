@@ -36,12 +36,11 @@ pub struct PendingDecoratorLinks {
 }
 
 impl PendingDecoratorLinks {
-    pub fn register_decorator_record(&mut self, links: &[JsonValue]) -> anyhow::Result<()> {
+    pub fn register_decorator_record(&mut self, links: &[JsonValue]) {
         self.decorator_records += 1;
         let mut merged = std::mem::take(&mut self.links);
         merged.extend(links.iter().cloned());
-        self.links = normalize_links(merged)?;
-        Ok(())
+        self.links = normalize_links(merged);
     }
 }
 
@@ -104,7 +103,7 @@ impl RelayWindowState {
         let record = partitioned_record.record;
         if is_managed_link_decorator(&record) {
             let Some(target_span_id) = decorator_target_span_id(&record) else {
-                warn!("Managed-link decorator missing traceId/target_id, skipping");
+                warn!("Managed-link decorator missing target_id, skipping");
                 return Ok(());
             };
 
@@ -112,7 +111,7 @@ impl RelayWindowState {
                 .pending_decorators
                 .entry(target_span_id)
                 .or_default()
-                .register_decorator_record(&decorator_links(&record))?;
+                .register_decorator_record(&decorator_links(&record));
             return Ok(());
         }
 
@@ -127,7 +126,7 @@ impl RelayWindowState {
 
         if is_linkable_target(&stored.record) {
             let Some(span_id) = span_id_of_record(&stored.record) else {
-                warn!("Linkable completed span missing traceId/spanId, skipping");
+                warn!("Linkable completed span missing spanId, skipping");
                 return Ok(());
             };
             upsert_target_record(&mut trace.linkable_targets, span_id, stored);
@@ -246,7 +245,7 @@ pub fn merge_links_into_target(target: &mut JsonValue, links: &[JsonValue]) {
 
     let mut merged = existing;
     merged.extend(links.iter().cloned());
-    let normalized = normalize_links(merged).unwrap_or_else(|_| links.to_vec());
+    let normalized = normalize_links(merged);
     target_object.insert("links".to_string(), JsonValue::Array(normalized));
 }
 
@@ -313,7 +312,7 @@ fn upsert_target_record(
     }
 }
 
-fn normalize_links(mut links: Vec<JsonValue>) -> anyhow::Result<Vec<JsonValue>> {
+fn normalize_links(mut links: Vec<JsonValue>) -> Vec<JsonValue> {
     links.retain(|link| {
         link.get("traceId").and_then(JsonValue::as_str).is_some()
             && link.get("spanId").and_then(JsonValue::as_str).is_some()
@@ -356,7 +355,7 @@ fn normalize_links(mut links: Vec<JsonValue>) -> anyhow::Result<Vec<JsonValue>> 
         }
     }
 
-    Ok(deduped)
+    deduped
 }
 
 #[cfg(test)]
