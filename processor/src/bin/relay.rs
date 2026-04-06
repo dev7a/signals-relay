@@ -3,12 +3,6 @@ use aws_lambda_events::{
     event::kinesis::{KinesisTimeWindowEvent, KinesisTimeWindowEventResponse},
     time_window::TimeWindowEventResponseProperties,
 };
-use signals_relay::{
-    annotate_current_span_error,
-    export::{collector_local_otlp_endpoint, resolve_relay_export_target, RelayExportTarget},
-    parser::process_kinesis_time_window_event,
-    send_parsed_batch,
-};
 use lambda_otel_lite::{
     init_telemetry, LambdaSpanProcessor, OtelTracingLayer, SpanAttributes, SpanAttributesExtractor,
     TelemetryConfig,
@@ -22,6 +16,12 @@ use reqwest_tracing::TracingMiddleware;
 use serde::{Deserialize, Serialize};
 use serverless_otlp_forwarder_core::{
     span_compactor::SpanCompactionConfig, InstrumentedHttpClient,
+};
+use signals_relay::{
+    annotate_current_span_error,
+    export::{collector_local_otlp_endpoint, resolve_relay_export_target, RelayExportTarget},
+    parser::process_kinesis_time_window_event,
+    send_parsed_batch,
 };
 use std::collections::HashMap;
 use std::sync::Arc;

@@ -1,0 +1,47 @@
+{
+  "resource": {
+    "attributes": {
+      "cloud.resource_id": "arn:aws:lambda:us-east-1:123456789012:function:demo-process-job",
+      "cloud.provider": "aws",
+      "service.name": "demo-process-job",
+      "cloud.platform": "aws_lambda",
+      "faas.name": "demo-process-job"
+    }
+  },
+  "traceId": "69abdc7e4a5137d6066480ed36f1757f",
+  "spanId": "203edb22b63dbd54",
+  "name": "demo-process-job/LambdaService",
+  "kind": "SERVER",
+  "startTimeUnixNano": 1772870782811000064,
+  "endTimeUnixNano": 1772870790299000064,
+  "durationNano": 7488000000,
+  "attributes": {
+    "aws.local.service": "demo-process-job",
+    "telemetry.extended": "true",
+    "aws.internal": {
+      "linking": true
+    },
+    "aws.local.environment": "lambda:default",
+    "http.status_code": 200,
+    "aws.request_id": "704ec5f5-038a-58c4-88ea-a7d0dd201f9e",
+    "aws.local.operation": "demo-process-job/LambdaService",
+    "aws.span.kind": "LOCAL_ROOT",
+    "faas.invocation_id": "704ec5f5-038a-58c4-88ea-a7d0dd201f9e",
+    "aws.xray.origin": "AWS::Lambda",
+    "cloud.resource_id": "arn:aws:lambda:us-east-1:123456789012:function:demo-process-job",
+    "aws.lambda.name": "demo-process-job",
+    "PlatformType": "AWS::Lambda",
+    "http.response.status_code": 200,
+    "faas.trigger": "http"
+  },
+  "status": {
+    "code": "UNSET"
+  },
+  "_aws": {
+    "xray": {
+      "linking": true,
+      "name": "demo-process-job",
+      "type": "segment"
+    }
+  }
+}

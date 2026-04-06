@@ -744,7 +744,7 @@ mod tests {
     }
 
     fn decode_single_span(
-        item: &serverless_otlp_forwarder_core::telemetry::TelemetryData,
+        item: &signals_relay_core::EncodedOtlpPayload,
     ) -> opentelemetry_proto::tonic::trace::v1::Span {
         let request = ExportTraceServiceRequest::decode(item.payload.as_slice())
             .expect("payload should decode");

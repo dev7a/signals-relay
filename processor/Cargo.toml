@@ -7,6 +7,7 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+signals-relay-core = { path = "../signals-relay-core" }
 serverless-otlp-forwarder-core = { workspace = true, features = ["instrumented-client"] }
 tokio.workspace = true
 anyhow.workspace = true

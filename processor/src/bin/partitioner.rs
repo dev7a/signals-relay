@@ -2,11 +2,11 @@ use anyhow::{Context, Result};
 use aws_lambda_events::event::cloudwatch_logs::LogsEvent;
 use aws_sdk_kinesis::Client as KinesisClient;
 use aws_sdk_sqs::Client as SqsClient;
+use lambda_runtime::{run, service_fn, Error as LambdaError, LambdaEvent};
 use signals_relay::{
     annotate_current_span_error,
     parser::{build_partition_batches, AwsPartitionerIo, PartitionerRuntime},
 };
-use lambda_runtime::{run, service_fn, Error as LambdaError, LambdaEvent};
 use std::{env, sync::Arc};
 use tracing::info;
 
