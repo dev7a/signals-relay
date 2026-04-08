@@ -39,6 +39,13 @@ In the current `dev7a` setup, those values come from the public-account infrastr
 
 For manual publication from a workstation, configure a dedicated `public_publish` environment in `samconfig.toml` that targets the publication account and its SAR artifacts bucket.
 
+Before publishing manually, update the coordinated repo version first:
+
+- set [`Cargo.toml`](../Cargo.toml) `workspace.package.version`
+- set [`template.yaml`](../template.yaml) `Metadata.AWS::ServerlessRepo::Application.SemanticVersion`
+
+Those values should match the version you plan to publish.
+
 With that environment in place, the CLI flow is:
 
 ```bash
@@ -47,7 +54,7 @@ sam package --config-env public_publish
 sam publish --config-env public_publish --semantic-version 0.1.0
 ```
 
-The `package` step writes a packaged template to `.aws-sam/publish-public.yaml`. Override `--semantic-version` for each release, and override `--s3-prefix` if you want a version-specific upload path instead of the default manual prefix.
+The `package` step writes a packaged template to `.aws-sam/publish-public.yaml`. Keep `--semantic-version` aligned with the repo version above, and override `--s3-prefix` if you want a version-specific upload path instead of the default manual prefix.
 
 ## Consumer Install
 
