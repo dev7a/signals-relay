@@ -1,3 +1,5 @@
+//! OTLP trace payload conversion for reconciled span records.
+
 use anyhow::{Context, Result};
 use opentelemetry_proto::tonic::{
     collector::trace::v1::ExportTraceServiceRequest,
@@ -366,6 +368,11 @@ fn encode_span_to_otlp_protobuf(record: Value) -> Result<Vec<u8>> {
     Ok(request.encode_to_vec())
 }
 
+/// Converts a reconciled span record into an encoded OTLP trace export payload.
+///
+/// The input is expected to follow the `aws/spans`-shaped JSON that the relay
+/// pipeline accumulates and merges during its tumbling window. The returned
+/// payload is protobuf-encoded and ready to hand to an OTLP/HTTP exporter.
 pub fn convert_span_to_otlp_payload(
     record: Value,
     source: impl Into<String>,
