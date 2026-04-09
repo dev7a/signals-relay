@@ -23,7 +23,16 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cargo_toml="$repo_root/Cargo.toml"
 cargo_lock="$repo_root/Cargo.lock"
 template_yaml="$repo_root/template.yaml"
-backup_dir="$(mktemp -d)"
+
+if backup_dir="$(mktemp -d "${TMPDIR:-/tmp}/set-version.XXXXXX" 2>/dev/null)"; then
+  :
+elif backup_dir="$(mktemp -d -t set-version 2>/dev/null)"; then
+  :
+else
+  echo "error: failed to create temporary backup directory" >&2
+  exit 1
+fi
+
 restore_needed=1
 
 cleanup() {
