@@ -18,7 +18,7 @@ env:
 jobs:
   publish:
     name: Package the core crate and publish the SAM app
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
       id-token: write
@@ -150,6 +150,17 @@ jobs:
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+
+      - name: Configure Cargo Lambda for native ARM builds
+        shell: bash
+        working-directory: processor
+        run: |
+          set -euo pipefail
+
+          cat > CargoLambda.toml <<'EOF'
+          [build]
+          compiler = "cargo"
+          EOF
 
       - name: Build the SAM application
         run: sam build --template-file "${{ steps.sam_template.outputs.path }}" --beta-features
