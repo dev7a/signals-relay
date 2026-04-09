@@ -21,8 +21,12 @@ case "$value" in
     value="${value%%\"*}"
     ;;
   *)
-    value="${value%%[[:space:]]#*}"
-    value="${value%"${value##*[![:space:]]}"}"
+    if [[ "$value" == \#* ]]; then
+      value=""
+    else
+      value="${value%%[[:space:]]#*}"
+      value="${value%"${value##*[![:space:]]}"}"
+    fi
     ;;
 esac
 
