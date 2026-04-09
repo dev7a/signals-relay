@@ -157,10 +157,13 @@ jobs:
           set -euo pipefail
 
           if command -v cargo-lambda >/dev/null 2>&1; then
-            installed_version="$(cargo-lambda --version | awk '{print $2}')"
-            if [[ "$installed_version" == "$CARGO_LAMBDA_VERSION" ]]; then
-              echo "cargo-lambda $CARGO_LAMBDA_VERSION already available"
-              exit 0
+            if installed_version="$(cargo-lambda --version 2>/dev/null | awk '{print $2}')"; then
+              if [[ "$installed_version" == "$CARGO_LAMBDA_VERSION" ]]; then
+                echo "cargo-lambda $CARGO_LAMBDA_VERSION already available"
+                exit 0
+              fi
+            else
+              echo "Existing cargo-lambda is unusable; reinstalling"
             fi
           fi
 
