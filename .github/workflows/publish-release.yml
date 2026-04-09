@@ -18,6 +18,7 @@ env:
   RELEASE_ROOT: release
   AWS_SAM_CLI_VERSION: "1.157.1"
   CARGO_LAMBDA_VERSION: "1.9.1"
+  CARGO_LAMBDA_AARCH64_UNKNOWN_LINUX_MUSL_SHA256: "71cd6592eb19560fb8d9eec3675ea82dd4c042aa997036d62a11a5010fa5f759"
 
 jobs:
   publish:
@@ -75,6 +76,13 @@ jobs:
 
       - name: Set up the Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies and cargo tools
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-arm64
+          key: cargo-lambda-${{ env.CARGO_LAMBDA_VERSION }}
+          cache-on-failure: true
 
       - name: Verify workspace and SAM versions match tag
         shell: bash
@@ -144,7 +152,36 @@ jobs:
           EOF
 
       - name: Install cargo-lambda
-        run: cargo install cargo-lambda --locked --version "$CARGO_LAMBDA_VERSION"
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if command -v cargo-lambda >/dev/null 2>&1; then
+            if installed_version="$(cargo-lambda --version 2>/dev/null | awk '{print $2}')"; then
+              if [[ "$installed_version" == "$CARGO_LAMBDA_VERSION" ]]; then
+                echo "cargo-lambda $CARGO_LAMBDA_VERSION already available"
+                exit 0
+              fi
+            else
+              echo "Existing cargo-lambda is unusable; reinstalling"
+            fi
+          fi
+
+          archive="cargo-lambda-v${CARGO_LAMBDA_VERSION}.aarch64-unknown-linux-musl.tar.gz"
+          base_url="https://github.com/cargo-lambda/cargo-lambda/releases/download/v${CARGO_LAMBDA_VERSION}"
+          tmp_dir="$(mktemp -d)"
+          trap 'rm -rf "$tmp_dir"' EXIT
+
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 "$base_url/$archive" -o "$tmp_dir/$archive"
+          echo "$CARGO_LAMBDA_AARCH64_UNKNOWN_LINUX_MUSL_SHA256  $tmp_dir/$archive" | sha256sum -c -
+
+          mkdir -p "$HOME/.cargo/bin"
+          tar -xzf "$tmp_dir/$archive" -C "$HOME/.cargo/bin"
+          installed_version="$(cargo-lambda --version | awk '{print $2}')"
+          if [[ "$installed_version" != "$CARGO_LAMBDA_VERSION" ]]; then
+            echo "Expected cargo-lambda $CARGO_LAMBDA_VERSION but found $installed_version" >&2
+            exit 1
+          fi
 
       - name: Install AWS SAM CLI
         run: python3 -m pip install "aws-sam-cli==$AWS_SAM_CLI_VERSION"
@@ -154,17 +191,6 @@ jobs:
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-
-      - name: Configure Cargo Lambda for native ARM builds
-        shell: bash
-        working-directory: processor
-        run: |
-          set -euo pipefail
-
-          cat > CargoLambda.toml <<'EOF'
-          [build]
-          compiler = "cargo"
-          EOF
 
       - name: Build the SAM application
         run: sam build --template-file "${{ steps.sam_template.outputs.path }}" --beta-features
