@@ -5,15 +5,6 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: Semantic version tag to publish, for example v0.9.0
-        required: true
-        type: string
-
-permissions:
-  contents: read
-  id-token: write
 
 env:
   AWS_REGION: us-east-1
@@ -23,16 +14,137 @@ env:
   CARGO_LAMBDA_VERSION: "1.9.1"
 
 jobs:
-  release:
-    name: Package the core crate and publish the SAM app
+  create_release_tag:
+    if: github.event_name == 'workflow_dispatch'
+    name: Create release tag from repo version
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.release_tag) || github.ref }}
+          ref: ${{ github.ref }}
+
+      - name: Resolve SAM template path
+        id: sam_template
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for candidate in template.yaml template.yml; do
+            if [[ -f "$candidate" ]]; then
+              echo "path=$candidate" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+
+          echo "::error::Could not find a SAM template file (expected template.yaml or template.yml)."
+          exit 1
+
+      - name: Set up the Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Resolve semantic version from the repository
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version_lines="$(
+            cargo metadata --no-deps --format-version 1 |
+              jq -r '
+                .packages[]
+                | select(.name == "signals-relay" or .name == "signals-relay-core")
+                | "\(.name)=\(.version)"
+              '
+          )"
+
+          version_count="$(printf '%s\n' "$version_lines" | cut -d= -f2 | sort -u | sed '/^$/d' | wc -l | tr -d ' ')"
+          if [[ "$version_count" != "1" ]]; then
+            echo "::error::Workspace package versions do not agree on a single release version."
+            echo "$version_lines"
+            exit 1
+          fi
+
+          version="$(printf '%s\n' "$version_lines" | head -n1 | cut -d= -f2)"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Repository version must use semver, got '$version'."
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Verify SAM version matches the repository version
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+          SAM_TEMPLATE: ${{ steps.sam_template.outputs.path }}
+        run: |
+          set -euo pipefail
+
+          sam_version="$(
+            sed -nE 's/^[[:space:]]*SemanticVersion:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$SAM_TEMPLATE" | head -n1
+          )"
+
+          if [[ -z "$sam_version" ]]; then
+            echo "::error::SAM template $SAM_TEMPLATE is missing Metadata.AWS::ServerlessRepo::Application.SemanticVersion"
+            exit 1
+          fi
+
+          if [[ "$sam_version" != "$EXPECTED_VERSION" ]]; then
+            echo "::error::SAM template version $sam_version does not match repository version $EXPECTED_VERSION"
+            exit 1
+          fi
+
+      - name: Fail if the release tag already exists
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          git fetch --tags origin
+
+          if git rev-parse -q --verify "refs/tags/$RELEASE_TAG" >/dev/null; then
+            echo "::error::Tag $RELEASE_TAG already exists locally."
+            exit 1
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $RELEASE_TAG already exists on origin."
+            exit 1
+          fi
+
+      - name: Create and push the release tag
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
+          git push origin "refs/tags/$RELEASE_TAG"
+
+  release:
+    if: github.event_name == 'push'
+    name: Package the core crate and publish the SAM app
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
 
       - name: Resolve SAM template path
         id: sam_template
@@ -53,12 +165,10 @@ jobs:
       - name: Resolve semantic version
         id: version
         shell: bash
-        env:
-          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
         run: |
           set -euo pipefail
 
-          tag="${RELEASE_TAG}"
+          tag="${GITHUB_REF_NAME}"
           if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?)$ ]]; then
             echo "::error::Release tags must use the vX.Y.Z pattern."
             exit 1

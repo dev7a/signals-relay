@@ -4,7 +4,7 @@ This repository releases the reusable `signals-relay-core` crate artifact and th
 
 ## What Gets Released
 
-Each `vX.Y.Z` release packages both deliverables from the same repo state:
+Each `v<version>` release packages both deliverables from the same repo state:
 
 - the `signals-relay-core` crate artifact
 - the deployable SAM application defined in [`template.yaml`](../template.yaml)
@@ -13,16 +13,23 @@ The release workflow packages the crate artifact for GitHub-based consumers and 
 
 ## Release Flow
 
-Releases are driven by semantic version tags using the `vX.Y.Z` pattern.
+Releases are driven from the coordinated repo version and published from a matching Git tag.
 
-1. Update the workspace package version in [`Cargo.toml`](../Cargo.toml).
-2. Create a tag such as `v0.1.0`.
-3. Push the tag to GitHub.
-4. The release workflow runs once for that tag, validates that the workspace versions match it, packages the crate artifact, builds and packages the SAM application, publishes the application, and uploads the release artifacts.
+1. Update [`Cargo.toml`](../Cargo.toml) `workspace.package.version`.
+2. Update [`template.yaml`](../template.yaml) `Metadata.AWS::ServerlessRepo::Application.SemanticVersion` to the same value.
+3. Run the `release` workflow manually from the branch you want to release.
+4. The workflow derives the tag as `v<version>`, fails if that tag already exists, and pushes it to GitHub.
+5. The tag push triggers the publish job, which validates that the workspace versions and SAM `SemanticVersion` still match the tag, then packages and publishes the release artifacts.
 
-The tag value becomes the effective semantic version for the release flow, because:
+Examples:
+
+- `0.1.0` becomes `v0.1.0`
+- `0.1.0-beta.1` becomes `v0.1.0-beta.1`
+
+The tag value remains the effective semantic version for the publish job, because:
 
 - the Rust workspace packages are expected to match that version directly
+- the SAM template `SemanticVersion` is expected to match it too
 - the workflow passes the extracted version to `sam publish --semantic-version`
 
 The workflow expects:
