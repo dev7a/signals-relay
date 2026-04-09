@@ -172,7 +172,7 @@ jobs:
           tmp_dir="$(mktemp -d)"
           trap 'rm -rf "$tmp_dir"' EXIT
 
-          curl -fsSL "$base_url/$archive" -o "$tmp_dir/$archive"
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 "$base_url/$archive" -o "$tmp_dir/$archive"
           echo "$CARGO_LAMBDA_AARCH64_UNKNOWN_LINUX_MUSL_SHA256  $tmp_dir/$archive" | sha256sum -c -
 
           mkdir -p "$HOME/.cargo/bin"
