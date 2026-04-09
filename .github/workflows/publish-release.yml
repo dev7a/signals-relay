@@ -19,6 +19,8 @@ env:
   AWS_SAM_CLI_VERSION: "1.157.1"
   CARGO_LAMBDA_VERSION: "1.9.1"
   CARGO_LAMBDA_AARCH64_UNKNOWN_LINUX_MUSL_SHA256: "71cd6592eb19560fb8d9eec3675ea82dd4c042aa997036d62a11a5010fa5f759"
+  ZIG_VERSION: "0.14.1"
+  ZIG_AARCH64_LINUX_SHA256: "f7a654acc967864f7a050ddacfaa778c7504a0eca8d2b678839c21eea47c992b"
 
 jobs:
   publish:
@@ -180,6 +182,43 @@ jobs:
           installed_version="$(cargo lambda --version | awk '{print $2}')"
           if [[ "$installed_version" != "$CARGO_LAMBDA_VERSION" ]]; then
             echo "Expected cargo-lambda $CARGO_LAMBDA_VERSION but found $installed_version" >&2
+            exit 1
+          fi
+
+      - name: Install Zig
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          install_dir="$HOME/.local/zig/$ZIG_VERSION"
+          if [[ -x "$install_dir/zig" ]]; then
+            if installed_version="$(PATH="$install_dir:$PATH" zig version 2>/dev/null)"; then
+              if [[ "$installed_version" == "$ZIG_VERSION" ]]; then
+                echo "$install_dir" >> "$GITHUB_PATH"
+                echo "zig $ZIG_VERSION already available"
+                exit 0
+              fi
+            fi
+          fi
+
+          archive="zig-aarch64-linux-${ZIG_VERSION}.tar.xz"
+          base_url="https://ziglang.org/download/${ZIG_VERSION}"
+          extract_dir="zig-aarch64-linux-${ZIG_VERSION}"
+          tmp_dir="$(mktemp -d)"
+          trap 'rm -rf "$tmp_dir"' EXIT
+
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 "$base_url/$archive" -o "$tmp_dir/$archive"
+          echo "$ZIG_AARCH64_LINUX_SHA256  $tmp_dir/$archive" | sha256sum -c -
+
+          tar -xJf "$tmp_dir/$archive" -C "$tmp_dir"
+          mkdir -p "$(dirname "$install_dir")"
+          rm -rf "$install_dir"
+          mv "$tmp_dir/$extract_dir" "$install_dir"
+          echo "$install_dir" >> "$GITHUB_PATH"
+
+          installed_version="$(PATH="$install_dir:$PATH" zig version)"
+          if [[ "$installed_version" != "$ZIG_VERSION" ]]; then
+            echo "Expected zig $ZIG_VERSION but found $installed_version" >&2
             exit 1
           fi
 
