@@ -16,7 +16,7 @@ The release workflow packages the crate artifact for GitHub-based consumers and 
 Releases are driven by semantic version tags using the `vX.Y.Z` pattern.
 
 1. Update the workspace package version in [`Cargo.toml`](../Cargo.toml).
-2. Create a tag such as `v0.9.0`.
+2. Create a tag such as `v0.1.0`.
 3. Push the tag to GitHub.
 4. The release workflow runs once for that tag, validates that the workspace versions match it, packages the crate artifact, builds and packages the SAM application, publishes the application, and uploads the release artifacts.
 
@@ -29,6 +29,32 @@ The workflow expects:
 
 - `AWS_ROLE_TO_ASSUME` for GitHub Actions OIDC authentication
 - `SAR_ARTIFACT_BUCKET` for packaged template and asset uploads during release
+
+In the current `dev7a` setup, those values come from the public-account infrastructure stack in the companion `oidc-gha-provider` project:
+
+- `SignalsRelayPublisherRoleArn` -> `AWS_ROLE_TO_ASSUME`
+- `SignalsRelaySarArtifactsBucketName` -> `SAR_ARTIFACT_BUCKET`
+
+## Manual SAR Publish
+
+For manual publication from a workstation, configure a dedicated `public_publish` environment in `samconfig.toml` that targets the publication account and its SAR artifacts bucket.
+
+Before publishing manually, update the coordinated repo version first:
+
+- set [`Cargo.toml`](../Cargo.toml) `workspace.package.version`
+- set [`template.yaml`](../template.yaml) `Metadata.AWS::ServerlessRepo::Application.SemanticVersion`
+
+Those values should match the version you plan to publish.
+
+With that environment in place, the CLI flow is:
+
+```bash
+sam build --config-env public_publish --template-file template.yaml
+sam package --config-env public_publish
+sam publish --config-env public_publish --semantic-version 0.1.0
+```
+
+The `package` step writes a packaged template to `.aws-sam/publish-public.yaml`. Keep `--semantic-version` aligned with the repo version above, and override `--s3-prefix` if you want a version-specific upload path instead of the default manual prefix.
 
 ## Consumer Install
 

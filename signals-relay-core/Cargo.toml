@@ -5,6 +5,13 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Core span reconciliation and OTLP payload encoding for Signals Relay."
+documentation = "https://docs.rs/signals-relay-core"
+readme = "README.md"
+keywords = ["opentelemetry", "otlp", "tracing", "aws", "application-signals"]
+categories = ["network-programming", "development-tools::debugging"]
 
 [dependencies]
 anyhow.workspace = true

@@ -1,3 +1,5 @@
+//! Stateful record reconciliation for the Signals Relay tumbling window.
+
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -6,36 +8,52 @@ use tracing::warn;
 
 use crate::{otlp, telemetry::EncodedOtlpPayload};
 
+/// Maximum number of records that should be included in one `PutRecords` call.
 pub const MAX_PUT_RECORDS: usize = 500;
 const WINDOW_STATE_KEY: &str = "window_state";
 
+/// Final OTLP payloads and trace bookkeeping emitted from a parsed batch.
 #[derive(Debug, Default)]
 pub struct ParsedBatch {
+    /// Encoded OTLP payloads ready for export.
     pub telemetry_items: Vec<EncodedOtlpPayload>,
+    /// Trace IDs emitted during this batch, useful for downstream accounting.
     pub emitted_trace_ids: BTreeSet<String>,
 }
 
+/// A source record after partitioning by trace ID and before relay-window accumulation.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PartitionedSpanRecord {
+    /// Original CloudWatch Logs log group for the source event.
     pub source_log_group: String,
+    /// Original CloudWatch Logs event ID, used for deduplication.
     pub source_event_id: String,
+    /// Trace ID used as the stream partition key and relay grouping key.
     pub trace_id: String,
+    /// Raw span record payload.
     pub record: JsonValue,
 }
 
+/// A stored span record kept inside relay window state.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StoredSpanRecord {
+    /// Original CloudWatch Logs log group for the source event.
     pub source_log_group: String,
+    /// Raw span record payload.
     pub record: JsonValue,
 }
 
+/// Accumulated links contributed by managed-link decorator records.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct PendingDecoratorLinks {
+    /// Normalized link documents waiting to be merged into the target span.
     pub links: Vec<JsonValue>,
+    /// Number of decorator records that contributed to this pending set.
     pub decorator_records: usize,
 }
 
 impl PendingDecoratorLinks {
+    /// Merges one decorator record's links into the pending set.
     pub fn register_decorator_record(&mut self, links: &[JsonValue]) {
         self.decorator_records += 1;
         let mut merged = std::mem::take(&mut self.links);
@@ -44,26 +62,37 @@ impl PendingDecoratorLinks {
     }
 }
 
+/// Per-trace aggregation state built during a relay tumbling window.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TraceAggregate {
+    /// Completed spans that do not participate in managed-link target merging.
     pub ordinary_spans: Vec<StoredSpanRecord>,
+    /// Completed spans that can accept managed-link decorator links.
     pub linkable_targets: BTreeMap<String, StoredSpanRecord>,
+    /// Decorator links keyed by their eventual target span ID.
     pub pending_decorators: BTreeMap<String, PendingDecoratorLinks>,
 }
 
+/// Serializable relay state carried across tumbling-window invocations.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct RelayWindowState {
+    /// Source event IDs already processed in this window.
     pub seen_event_ids: BTreeSet<String>,
+    /// Per-trace aggregation state for the current window.
     pub traces: BTreeMap<String, TraceAggregate>,
 }
 
+/// Finalization result for a relay window.
 #[derive(Debug, Default)]
 pub struct RelayFinalizeResult {
+    /// Parsed OTLP payloads emitted during finalization.
     pub parsed_batch: ParsedBatch,
+    /// Count of decorator records that never found a target span in time.
     pub late_decorators_dropped: usize,
 }
 
 impl RelayWindowState {
+    /// Restores relay window state from the Lambda tumbling-window response map.
     pub fn from_response_state(response_state: &HashMap<String, String>) -> anyhow::Result<Self> {
         let Some(serialized) = response_state.get(WINDOW_STATE_KEY) else {
             return Ok(Self::default());
@@ -72,6 +101,7 @@ impl RelayWindowState {
         serde_json::from_str(serialized).context("Failed to deserialize relay window state")
     }
 
+    /// Serializes relay window state back into the Lambda response map.
     pub fn to_response_state(&self) -> anyhow::Result<HashMap<String, String>> {
         let mut response_state = HashMap::new();
         response_state.insert(
@@ -81,16 +111,19 @@ impl RelayWindowState {
         Ok(response_state)
     }
 
+    /// Returns the serialized state size in bytes.
     pub fn serialized_size_bytes(&self) -> anyhow::Result<usize> {
         Ok(serde_json::to_vec(self)
             .context("Failed to serialize relay window state for sizing")?
             .len())
     }
 
+    /// Records a source event ID and returns `true` when it was not seen before.
     pub fn record_is_new(&mut self, source_event_id: String) -> bool {
         self.seen_event_ids.insert(source_event_id)
     }
 
+    /// Applies one partitioned span record to the in-memory window state.
     pub fn apply_record(
         &mut self,
         partitioned_record: PartitionedSpanRecord,
@@ -137,6 +170,7 @@ impl RelayWindowState {
         Ok(())
     }
 
+    /// Finalizes all accumulated traces into encoded OTLP payloads.
     pub fn finalize(self) -> RelayFinalizeResult {
         let mut finalized = RelayFinalizeResult::default();
 
@@ -190,6 +224,7 @@ fn push_encoded_payload(
     }
 }
 
+/// Converts one span record into the encoded payload wrapper used by exporters.
 pub fn build_encoded_otlp_payload(
     record: JsonValue,
     source: &str,
@@ -197,14 +232,17 @@ pub fn build_encoded_otlp_payload(
     otlp::convert_span_to_otlp_payload(record, source.to_string())
 }
 
+/// Returns the record trace ID, if present.
 pub fn trace_id_of_record(record: &JsonValue) -> Option<String> {
     record.get("traceId")?.as_str().map(str::to_string)
 }
 
+/// Returns the record span ID, if present.
 pub fn span_id_of_record(record: &JsonValue) -> Option<String> {
     record.get("spanId")?.as_str().map(str::to_string)
 }
 
+/// Computes a rough richness score for choosing the better duplicate target span.
 pub fn record_richness(record: &JsonValue) -> usize {
     let Some(record) = record.as_object() else {
         return 0;
@@ -233,6 +271,7 @@ pub fn record_richness(record: &JsonValue) -> usize {
             .unwrap_or_default()
 }
 
+/// Merges normalized links into a target span record.
 pub fn merge_links_into_target(target: &mut JsonValue, links: &[JsonValue]) {
     let Some(target_object) = target.as_object_mut() else {
         return;
@@ -249,6 +288,7 @@ pub fn merge_links_into_target(target: &mut JsonValue, links: &[JsonValue]) {
     target_object.insert("links".to_string(), JsonValue::Array(normalized));
 }
 
+/// Returns `true` when the record contains an end timestamp.
 pub fn is_completed_span(record: &JsonValue) -> bool {
     record
         .get("endTimeUnixNano")
@@ -256,6 +296,7 @@ pub fn is_completed_span(record: &JsonValue) -> bool {
         .unwrap_or(false)
 }
 
+/// Returns `true` when the record can receive managed-link decorator links.
 pub fn is_linkable_target(record: &JsonValue) -> bool {
     record
         .get("_aws")
@@ -273,6 +314,7 @@ pub fn is_linkable_target(record: &JsonValue) -> bool {
             .unwrap_or(false)
 }
 
+/// Returns `true` when the record is a managed-link decorator span.
 pub fn is_managed_link_decorator(record: &JsonValue) -> bool {
     record
         .get("_aws")
@@ -282,6 +324,7 @@ pub fn is_managed_link_decorator(record: &JsonValue) -> bool {
         == Some("managed_link")
 }
 
+/// Extracts the managed-link target span ID from a decorator record.
 pub fn decorator_target_span_id(record: &JsonValue) -> Option<String> {
     record
         .get("_aws")
@@ -291,6 +334,7 @@ pub fn decorator_target_span_id(record: &JsonValue) -> Option<String> {
         .map(str::to_string)
 }
 
+/// Extracts the links carried by a decorator record.
 pub fn decorator_links(record: &JsonValue) -> Vec<JsonValue> {
     record
         .get("links")
