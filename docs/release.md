@@ -52,10 +52,27 @@ With that environment in place, the CLI flow is:
 ```bash
 VERSION="$(
   python3 - <<'PY'
-import tomllib
+import json
+import subprocess
 
-with open("Cargo.toml", "rb") as handle:
-    print(tomllib.load(handle)["workspace"]["package"]["version"])
+metadata = json.loads(
+    subprocess.check_output(
+        ["cargo", "metadata", "--no-deps", "--format-version", "1"],
+        text=True,
+    )
+)
+
+workspace_members = set(metadata["workspace_members"])
+versions = {
+    package["version"]
+    for package in metadata["packages"]
+    if package["id"] in workspace_members
+}
+
+if len(versions) != 1:
+    raise SystemExit(f"expected one coordinated workspace version, found: {sorted(versions)}")
+
+print(next(iter(versions)))
 PY
 )"
 
