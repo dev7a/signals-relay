@@ -3,6 +3,10 @@ name: publish-release
 on:
   workflow_call:
     inputs:
+      checkout_ref:
+        description: Git ref to check out for the release build
+        required: true
+        type: string
       release_tag:
         description: Git tag to publish, for example v0.1.0 or v0.1.0-beta.1
         required: true
@@ -24,11 +28,11 @@ jobs:
       id-token: write
 
     steps:
-      - name: Check out the release tag
+      - name: Check out the release ref
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: refs/tags/${{ inputs.release_tag }}
+          ref: ${{ inputs.checkout_ref }}
 
       - name: Resolve SAM template path
         id: sam_template
@@ -225,6 +229,14 @@ jobs:
           }
           EOF
 
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: signals-relay-${{ steps.version.outputs.version }}
+          path: ${{ env.RELEASE_ROOT }}/${{ steps.version.outputs.version }}
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Publish to Serverless Application Repository
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -235,11 +247,3 @@ jobs:
             --template "$RELEASE_ROOT/$VERSION/app/packaged.yaml" \
             --region "$AWS_REGION" \
             --semantic-version "$VERSION"
-
-      - name: Upload release artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: signals-relay-${{ steps.version.outputs.version }}
-          path: ${{ env.RELEASE_ROOT }}/${{ steps.version.outputs.version }}
-          if-no-files-found: error
-          retention-days: 14

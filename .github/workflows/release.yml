@@ -7,12 +7,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  create_release_tag:
+  prepare_release:
     if: github.event_name == 'workflow_dispatch'
-    name: Create release tag from repo version
+    name: Validate release metadata
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     outputs:
       release_tag: ${{ steps.version.outputs.tag }}
 
@@ -111,29 +111,54 @@ jobs:
             exit 1
           fi
 
-      - name: Create and push the release tag
-        shell: bash
-        env:
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
-        run: |
-          set -euo pipefail
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
-          git push origin "refs/tags/$RELEASE_TAG"
-
   publish_from_dispatch:
     if: github.event_name == 'workflow_dispatch'
-    name: Publish release from derived tag
-    needs: create_release_tag
+    name: Publish release from checked-out commit
+    needs: prepare_release
     permissions:
       contents: read
       id-token: write
     uses: ./.github/workflows/publish-release.yml
     with:
-      release_tag: ${{ needs.create_release_tag.outputs.release_tag }}
+      checkout_ref: ${{ github.sha }}
+      release_tag: ${{ needs.prepare_release.outputs.release_tag }}
     secrets: inherit
+
+  tag_after_dispatch_publish:
+    if: github.event_name == 'workflow_dispatch'
+    name: Create release tag after successful publish
+    needs:
+      - prepare_release
+      - publish_from_dispatch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out the release commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Create and push the release tag
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.prepare_release.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          git fetch --tags origin
+
+          if git rev-parse -q --verify "refs/tags/$RELEASE_TAG" >/dev/null; then
+            echo "::error::Tag $RELEASE_TAG already exists."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
+          git push origin "refs/tags/$RELEASE_TAG"
 
   publish_from_tag:
     if: github.event_name == 'push'
@@ -143,5 +168,6 @@ jobs:
       id-token: write
     uses: ./.github/workflows/publish-release.yml
     with:
+      checkout_ref: refs/tags/${{ github.ref_name }}
       release_tag: ${{ github.ref_name }}
     secrets: inherit
