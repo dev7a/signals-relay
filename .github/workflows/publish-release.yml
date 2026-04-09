@@ -191,8 +191,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
 
       - name: Build the SAM application
-        env:
-          CARGO_LAMBDA_COMPILER: cargo
         run: sam build --template-file "${{ steps.sam_template.outputs.path }}" --beta-features
 
       - name: Package the SAM application
