@@ -18,8 +18,8 @@ Releases are driven from the coordinated repo version and published from a match
 1. Update [`Cargo.toml`](../Cargo.toml) `workspace.package.version`.
 2. Update [`template.yaml`](../template.yaml) `Metadata.AWS::ServerlessRepo::Application.SemanticVersion` to the same value.
 3. Run the `release` workflow manually from the branch you want to release.
-4. The workflow derives the tag as `v<version>`, fails if that tag already exists, and pushes it to GitHub.
-5. The tag push triggers the publish job, which validates that the workspace versions and SAM `SemanticVersion` still match the tag, then packages and publishes the release artifacts.
+4. The workflow derives the tag as `v<version>`, fails if that tag already exists, creates it, and publishes the release from that tagged commit in the same run.
+5. If you push a matching tag outside the workflow, the same publish job still runs on the `push.tags` trigger.
 
 Examples:
 

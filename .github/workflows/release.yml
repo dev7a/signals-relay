@@ -14,12 +14,12 @@ env:
   CARGO_LAMBDA_VERSION: "1.9.1"
 
 jobs:
-  create_release_tag:
-    if: github.event_name == 'workflow_dispatch'
-    name: Create release tag from repo version
+  release:
+    name: Tag and publish the release
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
 
     steps:
       - name: Check out the repository
@@ -48,7 +48,8 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Resolve semantic version from the repository
-        id: version
+        if: github.event_name == 'workflow_dispatch'
+        id: repo_version
         shell: bash
         run: |
           set -euo pipefail
@@ -79,9 +80,10 @@ jobs:
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
       - name: Verify SAM version matches the repository version
+        if: github.event_name == 'workflow_dispatch'
         shell: bash
         env:
-          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+          EXPECTED_VERSION: ${{ steps.repo_version.outputs.version }}
           SAM_TEMPLATE: ${{ steps.sam_template.outputs.path }}
         run: |
           set -euo pipefail
@@ -101,9 +103,10 @@ jobs:
           fi
 
       - name: Fail if the release tag already exists
+        if: github.event_name == 'workflow_dispatch'
         shell: bash
         env:
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_TAG: ${{ steps.repo_version.outputs.tag }}
         run: |
           set -euo pipefail
 
@@ -119,10 +122,11 @@ jobs:
             exit 1
           fi
 
-      - name: Create and push the release tag
+      - name: Create, push, and check out the release tag
+        if: github.event_name == 'workflow_dispatch'
         shell: bash
         env:
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_TAG: ${{ steps.repo_version.outputs.tag }}
         run: |
           set -euo pipefail
 
@@ -130,37 +134,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
           git push origin "refs/tags/$RELEASE_TAG"
-
-  release:
-    if: github.event_name == 'push'
-    name: Package the core crate and publish the SAM app
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }}
-
-      - name: Resolve SAM template path
-        id: sam_template
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          for candidate in template.yaml template.yml; do
-            if [[ -f "$candidate" ]]; then
-              echo "path=$candidate" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          done
-
-          echo "::error::Could not find a SAM template file (expected template.yaml or template.yml)."
-          exit 1
+          git checkout "$RELEASE_TAG"
 
       - name: Resolve semantic version
         id: version
@@ -168,17 +142,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          tag="${GITHUB_REF_NAME}"
+          tag="${{ github.event_name == 'workflow_dispatch' && steps.repo_version.outputs.tag || github.ref_name }}"
           if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?)$ ]]; then
-            echo "::error::Release tags must use the vX.Y.Z pattern."
+            echo "::error::Release tags must use vX.Y.Z or an allowed prerelease form such as vX.Y.Z-beta.1."
             exit 1
           fi
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
-
-      - name: Set up the Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
 
       - name: Verify workspace and SAM versions match tag
         shell: bash
