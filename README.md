@@ -13,6 +13,7 @@ This repository ships two deliverables from the same repo under one coordinated 
 - the deployable serverless SAM application.
 
 - Coordinated release workflow: `.github/workflows/release.yml` packages the `signals-relay-core` crate artifact and publishes the SAM application from the same `vX.Y.Z` tag
+- Version bump helper: `./scripts/set-version.sh <version>` keeps `Cargo.toml`, `template.yaml`, and `Cargo.lock` aligned for release prep
 - Deployable serverless application: `template.yaml` and `samconfig.example.toml`
 - Release and consumer guidance: [docs/release.md](./docs/release.md)
 - Architecture overview: [docs/current-architecture.md](./docs/current-architecture.md)

@@ -15,11 +15,10 @@ The release workflow packages the crate artifact for GitHub-based consumers and 
 
 Releases are driven from the coordinated repo version and published from a matching Git tag.
 
-1. Update [`Cargo.toml`](../Cargo.toml) `workspace.package.version`.
-2. Update [`template.yaml`](../template.yaml) `Metadata.AWS::ServerlessRepo::Application.SemanticVersion` to the same value.
-3. Run the `release` workflow manually from the branch you want to release.
-4. The workflow derives the tag as `v<version>`, fails if that tag already exists, creates it, and publishes the release from that tagged commit in the same run.
-5. If you push a matching tag outside the workflow, the same publish job still runs on the `push.tags` trigger.
+1. Run [`scripts/set-version.sh`](../scripts/set-version.sh) with the target version.
+2. Run the `release` workflow manually from the branch you want to release.
+3. The workflow derives the tag as `v<version>`, fails if that tag already exists, creates it, and publishes the release from that tagged commit in the same run.
+4. If you push a matching tag outside the workflow, the same publish job still runs on the `push.tags` trigger.
 
 Examples:
 
@@ -46,22 +45,19 @@ In the current `dev7a` setup, those values come from the public-account infrastr
 
 For manual publication from a workstation, configure a dedicated `public_publish` environment in `samconfig.toml` that targets the publication account and its SAR artifacts bucket.
 
-Before publishing manually, update the coordinated repo version first:
-
-- set [`Cargo.toml`](../Cargo.toml) `workspace.package.version`
-- set [`template.yaml`](../template.yaml) `Metadata.AWS::ServerlessRepo::Application.SemanticVersion`
-
-Those values should match the version you plan to publish.
+Before publishing manually, set the coordinated repo version with [`scripts/set-version.sh`](../scripts/set-version.sh). The script updates [`Cargo.toml`](../Cargo.toml) and [`template.yaml`](../template.yaml), then asks Cargo to refresh the workspace package entries in [`Cargo.lock`](../Cargo.lock).
 
 With that environment in place, the CLI flow is:
 
 ```bash
+VERSION="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "signals-relay") | .version')"
+
 sam build --config-env public_publish --template-file template.yaml
 sam package --config-env public_publish
-sam publish --config-env public_publish --semantic-version 0.1.0
+sam publish --config-env public_publish --semantic-version "$VERSION"
 ```
 
-The `package` step writes a packaged template to `.aws-sam/publish-public.yaml`. Keep `--semantic-version` aligned with the repo version above, and override `--s3-prefix` if you want a version-specific upload path instead of the default manual prefix.
+The `package` step writes a packaged template to `.aws-sam/publish-public.yaml`. The `VERSION` shell variable keeps `sam publish` aligned with the repo version, and you can override `--s3-prefix` if you want a version-specific upload path instead of the default manual prefix.
 
 ## Consumer Install
 
@@ -98,6 +94,8 @@ The repository intentionally republishes both deliverables together, even if a g
 - An app-only change still produces a fresh `signals-relay-core` crate artifact.
 
 That keeps the release process simple: one tag, one workflow, one repo version.
+
+The example SAM config intentionally does not mirror the release version in stack tags. The coordinated release version lives in the repo manifests and release tag, not in deploy-time tagging defaults.
 
 ## SAR Publication Direction
 
