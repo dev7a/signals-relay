@@ -76,6 +76,13 @@ jobs:
       - name: Set up the Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Cache Rust dependencies and cargo tools
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-arm64
+          key: cargo-lambda-${{ env.CARGO_LAMBDA_VERSION }}
+          cache-on-failure: true
+
       - name: Verify workspace and SAM versions match tag
         shell: bash
         env:
@@ -144,7 +151,35 @@ jobs:
           EOF
 
       - name: Install cargo-lambda
-        run: cargo install cargo-lambda --locked --version "$CARGO_LAMBDA_VERSION"
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if command -v cargo-lambda >/dev/null 2>&1; then
+            installed_version="$(cargo-lambda --version | awk '{print $2}')"
+            if [[ "$installed_version" == "$CARGO_LAMBDA_VERSION" ]]; then
+              echo "cargo-lambda $CARGO_LAMBDA_VERSION already available"
+              exit 0
+            fi
+          fi
+
+          archive="cargo-lambda-v${CARGO_LAMBDA_VERSION}.aarch64-unknown-linux-musl.tar.gz"
+          checksum="${archive}.sha256"
+          base_url="https://github.com/cargo-lambda/cargo-lambda/releases/download/v${CARGO_LAMBDA_VERSION}"
+          tmp_dir="$(mktemp -d)"
+          trap 'rm -rf "$tmp_dir"' EXIT
+
+          curl -fsSL "$base_url/$archive" -o "$tmp_dir/$archive"
+          curl -fsSL "$base_url/$checksum" -o "$tmp_dir/$checksum"
+
+          (
+            cd "$tmp_dir"
+            sha256sum -c "$checksum"
+          )
+
+          mkdir -p "$HOME/.cargo/bin"
+          tar -xzf "$tmp_dir/$archive" -C "$HOME/.cargo/bin"
+          cargo-lambda --version | grep -F "cargo-lambda $CARGO_LAMBDA_VERSION"
 
       - name: Install AWS SAM CLI
         run: python3 -m pip install "aws-sam-cli==$AWS_SAM_CLI_VERSION"
