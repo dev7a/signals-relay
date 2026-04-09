@@ -41,12 +41,33 @@ def replace_once(path: Path, pattern: str, replacement: str, description: str) -
     path.write_text(updated)
 
 
-replace_once(
-    cargo_toml,
-    r"(\[workspace\.package\]\nversion = \")([^\"]+)(\")",
-    rf"\g<1>{version}\g<3>",
-    "workspace package version",
-)
+def replace_workspace_version(path: Path, version: str) -> None:
+    lines = path.read_text().splitlines(keepends=True)
+    in_workspace_package = False
+
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            in_workspace_package = stripped == "[workspace.package]"
+            continue
+
+        if in_workspace_package and re.match(r"^[ \t]*version[ \t]*=", line):
+            updated_line, count = re.subn(
+                r"^([ \t]*version[ \t]*=[ \t]*\")([^\"]+)(\".*)$",
+                rf"\g<1>{version}\g<3>",
+                line,
+                count=1,
+            )
+            if count != 1:
+                raise SystemExit(f"error: could not update workspace package version in {path}")
+            lines[index] = updated_line
+            path.write_text("".join(lines))
+            return
+
+    raise SystemExit(f"error: could not update workspace package version in {path}")
+
+
+replace_workspace_version(cargo_toml, version)
 replace_once(
     template_yaml,
     r"(^[ \t]*SemanticVersion:[ \t]*)([^ \t\r\n]+)([ \t]*$)",
@@ -55,7 +76,7 @@ replace_once(
 )
 PY
 
-(cd "$repo_root" && cargo update --workspace --offline >/dev/null)
+(cd "$repo_root" && cargo check --workspace --offline --quiet >/dev/null)
 
 echo "Updated release version to $version"
 echo "Derived release tag: v$version"
