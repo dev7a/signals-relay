@@ -21,7 +21,35 @@ fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cargo_toml="$repo_root/Cargo.toml"
+cargo_lock="$repo_root/Cargo.lock"
 template_yaml="$repo_root/template.yaml"
+backup_dir="$(mktemp -d)"
+restore_needed=1
+
+cleanup() {
+  rm -rf "$backup_dir"
+}
+
+restore_release_files() {
+  cp "$backup_dir/Cargo.toml" "$cargo_toml"
+  cp "$backup_dir/Cargo.lock" "$cargo_lock"
+  cp "$backup_dir/template.yaml" "$template_yaml"
+}
+
+on_exit() {
+  status=$?
+  if [[ $status -ne 0 && $restore_needed -eq 1 ]]; then
+    restore_release_files
+  fi
+  cleanup
+  exit "$status"
+}
+
+trap on_exit EXIT
+
+cp "$cargo_toml" "$backup_dir/Cargo.toml"
+cp "$cargo_lock" "$backup_dir/Cargo.lock"
+cp "$template_yaml" "$backup_dir/template.yaml"
 
 python3 - "$version" "$cargo_toml" "$template_yaml" <<'PY'
 from pathlib import Path
@@ -76,7 +104,21 @@ replace_once(
 )
 PY
 
-(cd "$repo_root" && cargo check --workspace --offline --quiet >/dev/null)
+refresh_lockfile() {
+  (
+    cd "$repo_root"
+    if ! cargo check --workspace --offline --quiet >/dev/null 2>&1; then
+      cargo check --workspace --quiet >/dev/null
+    fi
+  )
+}
+
+if ! refresh_lockfile; then
+  echo "error: failed to refresh Cargo.lock after updating the release version" >&2
+  exit 1
+fi
+
+restore_needed=0
 
 echo "Updated release version to $version"
 echo "Derived release tag: v$version"

@@ -50,7 +50,14 @@ Before publishing manually, set the coordinated repo version with [`scripts/set-
 With that environment in place, the CLI flow is:
 
 ```bash
-VERSION="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "signals-relay") | .version')"
+VERSION="$(
+  python3 - <<'PY'
+import tomllib
+
+with open("Cargo.toml", "rb") as handle:
+    print(tomllib.load(handle)["workspace"]["package"]["version"])
+PY
+)"
 
 sam build --config-env public_publish --template-file template.yaml
 sam package --config-env public_publish
