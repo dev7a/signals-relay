@@ -177,7 +177,11 @@ jobs:
 
           mkdir -p "$HOME/.cargo/bin"
           tar -xzf "$tmp_dir/$archive" -C "$HOME/.cargo/bin"
-          cargo-lambda --version | grep -F "cargo-lambda $CARGO_LAMBDA_VERSION"
+          installed_version="$(cargo-lambda --version | awk '{print $2}')"
+          if [[ "$installed_version" != "$CARGO_LAMBDA_VERSION" ]]; then
+            echo "Expected cargo-lambda $CARGO_LAMBDA_VERSION but found $installed_version" >&2
+            exit 1
+          fi
 
       - name: Install AWS SAM CLI
         run: python3 -m pip install "aws-sam-cli==$AWS_SAM_CLI_VERSION"
