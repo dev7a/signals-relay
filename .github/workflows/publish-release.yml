@@ -110,9 +110,10 @@ jobs:
             exit 1
           fi
 
-          sam_version="$(
-            sed -nE 's/^[[:space:]]*SemanticVersion:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$SAM_TEMPLATE" | head -n1
+          sam_version_raw="$(
+            sed -nE 's/^[[:space:]]*SemanticVersion:[[:space:]]*(.+)$/\1/p' "$SAM_TEMPLATE" | head -n1
           )"
+          sam_version="$(scripts/normalize-yaml-scalar.sh "$sam_version_raw")"
 
           if [[ -z "$sam_version" ]]; then
             echo "::error::SAM template $SAM_TEMPLATE is missing Metadata.AWS::ServerlessRepo::Application.SemanticVersion"
@@ -259,18 +260,36 @@ jobs:
             --s3-prefix "signals-relay/releases/$VERSION/app" \
             --output-template-file "$packaged_template"
 
-          packaged_semantic_version="$(
-            sed -nE 's/^[[:space:]]*SemanticVersion:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$packaged_template" | head -n1
+          packaged_semantic_version_raw="$(
+            sed -nE 's/^[[:space:]]*SemanticVersion:[[:space:]]*(.+)$/\1/p' "$packaged_template" | head -n1
           )"
-          packaged_license_url="$(
-            sed -nE 's/^[[:space:]]*LicenseUrl:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$packaged_template" | head -n1
+          packaged_license_url_raw="$(
+            sed -nE 's/^[[:space:]]*LicenseUrl:[[:space:]]*(.+)$/\1/p' "$packaged_template" | head -n1
           )"
-          packaged_readme_url="$(
-            sed -nE 's/^[[:space:]]*ReadmeUrl:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$packaged_template" | head -n1
+          packaged_readme_url_raw="$(
+            sed -nE 's/^[[:space:]]*ReadmeUrl:[[:space:]]*(.+)$/\1/p' "$packaged_template" | head -n1
           )"
+          packaged_semantic_version="$(scripts/normalize-yaml-scalar.sh "$packaged_semantic_version_raw")"
+          packaged_license_url="$(scripts/normalize-yaml-scalar.sh "$packaged_license_url_raw")"
+          packaged_readme_url="$(scripts/normalize-yaml-scalar.sh "$packaged_readme_url_raw")"
+
+          if [[ -z "$packaged_semantic_version" ]]; then
+            echo "::error::Packaged template '$packaged_template' is missing Metadata.AWS::ServerlessRepo::Application.SemanticVersion"
+            exit 1
+          fi
+
+          if [[ -z "$packaged_license_url" ]]; then
+            echo "::error::Packaged template '$packaged_template' is missing Metadata.AWS::ServerlessRepo::Application.LicenseUrl"
+            exit 1
+          fi
+
+          if [[ -z "$packaged_readme_url" ]]; then
+            echo "::error::Packaged template '$packaged_template' is missing Metadata.AWS::ServerlessRepo::Application.ReadmeUrl"
+            exit 1
+          fi
 
           if [[ "$packaged_semantic_version" != "$VERSION" ]]; then
-            echo "::error::Packaged template SemanticVersion $packaged_semantic_version does not match tag version $VERSION"
+            echo "::error::Packaged template SemanticVersion '$packaged_semantic_version' does not match tag version $VERSION"
             exit 1
           fi
 

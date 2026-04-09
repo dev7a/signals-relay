@@ -87,9 +87,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          sam_version="$(
-            sed -nE 's/^[[:space:]]*SemanticVersion:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$SAM_TEMPLATE" | head -n1
+          sam_version_raw="$(
+            sed -nE 's/^[[:space:]]*SemanticVersion:[[:space:]]*(.+)$/\1/p' "$SAM_TEMPLATE" | head -n1
           )"
+          sam_version="$(scripts/normalize-yaml-scalar.sh "$sam_version_raw")"
 
           if [[ -z "$sam_version" ]]; then
             echo "::error::SAM template $SAM_TEMPLATE is missing Metadata.AWS::ServerlessRepo::Application.SemanticVersion"
