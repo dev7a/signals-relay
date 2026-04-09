@@ -18,6 +18,7 @@ env:
   RELEASE_ROOT: release
   AWS_SAM_CLI_VERSION: "1.157.1"
   CARGO_LAMBDA_VERSION: "1.9.1"
+  CARGO_LAMBDA_AARCH64_UNKNOWN_LINUX_MUSL_SHA256: "71cd6592eb19560fb8d9eec3675ea82dd4c042aa997036d62a11a5010fa5f759"
 
 jobs:
   publish:
@@ -164,18 +165,12 @@ jobs:
           fi
 
           archive="cargo-lambda-v${CARGO_LAMBDA_VERSION}.aarch64-unknown-linux-musl.tar.gz"
-          checksum="${archive}.sha256"
           base_url="https://github.com/cargo-lambda/cargo-lambda/releases/download/v${CARGO_LAMBDA_VERSION}"
           tmp_dir="$(mktemp -d)"
           trap 'rm -rf "$tmp_dir"' EXIT
 
           curl -fsSL "$base_url/$archive" -o "$tmp_dir/$archive"
-          curl -fsSL "$base_url/$checksum" -o "$tmp_dir/$checksum"
-
-          (
-            cd "$tmp_dir"
-            sha256sum -c "$checksum"
-          )
+          echo "$CARGO_LAMBDA_AARCH64_UNKNOWN_LINUX_MUSL_SHA256  $tmp_dir/$archive" | sha256sum -c -
 
           mkdir -p "$HOME/.cargo/bin"
           tar -xzf "$tmp_dir/$archive" -C "$HOME/.cargo/bin"
