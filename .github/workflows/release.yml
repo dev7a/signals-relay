@@ -107,12 +107,7 @@ jobs:
           git fetch --tags origin
 
           if git rev-parse -q --verify "refs/tags/$RELEASE_TAG" >/dev/null; then
-            echo "::error::Tag $RELEASE_TAG already exists locally."
-            exit 1
-          fi
-
-          if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "::error::Tag $RELEASE_TAG already exists on origin."
+            echo "::error::Tag $RELEASE_TAG already exists."
             exit 1
           fi
 

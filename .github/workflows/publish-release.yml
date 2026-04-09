@@ -171,7 +171,7 @@ jobs:
           artifact_dir="$RELEASE_ROOT/$VERSION/app"
           mkdir -p "$artifact_dir"
           packaged_template="$artifact_dir/packaged.yaml"
-          built_template=".aws-sam/build/$SAM_TEMPLATE"
+          built_template=".aws-sam/build/template.yaml"
 
           sam package \
             --template-file "$built_template" \
