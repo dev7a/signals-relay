@@ -8,16 +8,22 @@ fi
 
 value="$1"
 
-value="${value%%[[:space:]]#*}"
 value="${value#"${value%%[![:space:]]*}"}"
 value="${value%"${value##*[![:space:]]}"}"
 
-if [[ ${#value} -ge 2 ]]; then
-  first_char="${value:0:1}"
-  last_char="${value: -1}"
-  if [[ "$first_char" == "$last_char" ]] && { [[ "$first_char" == "'" ]] || [[ "$first_char" == '"' ]]; }; then
-    value="${value:1:${#value}-2}"
-  fi
-fi
+case "$value" in
+  \'*)
+    value="${value#\'}"
+    value="${value%%\'*}"
+    ;;
+  \"*)
+    value="${value#\"}"
+    value="${value%%\"*}"
+    ;;
+  *)
+    value="${value%%[[:space:]]#*}"
+    value="${value%"${value##*[![:space:]]}"}"
+    ;;
+esac
 
 printf '%s\n' "$value"
