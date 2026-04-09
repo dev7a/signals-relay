@@ -17,8 +17,9 @@ Releases are driven from the coordinated repo version and published from a match
 
 1. Run [`scripts/set-version.sh`](../scripts/set-version.sh) with the target version.
 2. Run the `release` workflow manually from the branch you want to release.
-3. The workflow derives the tag as `v<version>`, fails if that tag already exists, creates it, and publishes the release from that tagged commit in the same run.
-4. If you push a matching tag outside the workflow, the same publish job still runs on the `push.tags` trigger.
+3. The workflow derives the tag as `v<version>`, fails if that tag already exists, and publishes the release from the checked-out commit first.
+4. Only after the publish job succeeds does the workflow create and push the matching Git tag.
+5. If you push a matching tag outside the workflow, the same publish job still runs on the `push.tags` trigger.
 
 Examples:
 
