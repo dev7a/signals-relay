@@ -6,20 +6,15 @@ on:
       - "v*"
   workflow_dispatch:
 
-env:
-  AWS_REGION: us-east-1
-  SAM_CLI_TELEMETRY: "0"
-  RELEASE_ROOT: release
-  AWS_SAM_CLI_VERSION: "1.157.1"
-  CARGO_LAMBDA_VERSION: "1.9.1"
-
 jobs:
-  release:
-    name: Tag and publish the release
+  create_release_tag:
+    if: github.event_name == 'workflow_dispatch'
+    name: Create release tag from repo version
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write
+    outputs:
+      release_tag: ${{ steps.version.outputs.tag }}
 
     steps:
       - name: Check out the repository
@@ -48,11 +43,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Resolve semantic version from the repository
-        if: github.event_name == 'workflow_dispatch'
-        id: repo_version
+        id: version
         shell: bash
         run: |
           set -euo pipefail
+
+          semver_regex='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9A-Za-z-][0-9A-Za-z-]*))*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$'
 
           version_lines="$(
             cargo metadata --no-deps --format-version 1 |
@@ -71,7 +67,7 @@ jobs:
           fi
 
           version="$(printf '%s\n' "$version_lines" | head -n1 | cut -d= -f2)"
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+          if [[ ! "$version" =~ $semver_regex ]]; then
             echo "::error::Repository version must use semver, got '$version'."
             exit 1
           fi
@@ -80,10 +76,9 @@ jobs:
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
       - name: Verify SAM version matches the repository version
-        if: github.event_name == 'workflow_dispatch'
         shell: bash
         env:
-          EXPECTED_VERSION: ${{ steps.repo_version.outputs.version }}
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
           SAM_TEMPLATE: ${{ steps.sam_template.outputs.path }}
         run: |
           set -euo pipefail
@@ -103,10 +98,9 @@ jobs:
           fi
 
       - name: Fail if the release tag already exists
-        if: github.event_name == 'workflow_dispatch'
         shell: bash
         env:
-          RELEASE_TAG: ${{ steps.repo_version.outputs.tag }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
           set -euo pipefail
 
@@ -122,11 +116,10 @@ jobs:
             exit 1
           fi
 
-      - name: Create, push, and check out the release tag
-        if: github.event_name == 'workflow_dispatch'
+      - name: Create and push the release tag
         shell: bash
         env:
-          RELEASE_TAG: ${{ steps.repo_version.outputs.tag }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
           set -euo pipefail
 
@@ -134,180 +127,26 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
           git push origin "refs/tags/$RELEASE_TAG"
-          git checkout "$RELEASE_TAG"
 
-      - name: Resolve semantic version
-        id: version
-        shell: bash
-        run: |
-          set -euo pipefail
+  publish_from_dispatch:
+    if: github.event_name == 'workflow_dispatch'
+    name: Publish release from derived tag
+    needs: create_release_tag
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/publish-release.yml
+    with:
+      release_tag: ${{ needs.create_release_tag.outputs.release_tag }}
+    secrets: inherit
 
-          tag="${{ github.event_name == 'workflow_dispatch' && steps.repo_version.outputs.tag || github.ref_name }}"
-          if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?)$ ]]; then
-            echo "::error::Release tags must use vX.Y.Z or an allowed prerelease form such as vX.Y.Z-beta.1."
-            exit 1
-          fi
-
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
-
-      - name: Verify workspace and SAM versions match tag
-        shell: bash
-        env:
-          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
-          SAM_TEMPLATE: ${{ steps.sam_template.outputs.path }}
-        run: |
-          set -euo pipefail
-
-          mismatches=$(
-            cargo metadata --no-deps --format-version 1 |
-              jq -r --arg expected "$EXPECTED_VERSION" '
-                .packages[]
-                | select(.name == "signals-relay" or .name == "signals-relay-core")
-                | select(.version != $expected)
-                | "\(.name)=\(.version)"
-              '
-          )
-
-          if [[ -n "$mismatches" ]]; then
-            echo "::error::Workspace package versions do not match tag $EXPECTED_VERSION"
-            echo "$mismatches"
-            exit 1
-          fi
-
-          sam_version="$(
-            sed -nE 's/^[[:space:]]*SemanticVersion:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$SAM_TEMPLATE" | head -n1
-          )"
-
-          if [[ -z "$sam_version" ]]; then
-            echo "::error::SAM template $SAM_TEMPLATE is missing Metadata.AWS::ServerlessRepo::Application.SemanticVersion"
-            exit 1
-          fi
-
-          if [[ "$sam_version" != "$EXPECTED_VERSION" ]]; then
-            echo "::error::SAM template version $sam_version does not match tag $EXPECTED_VERSION"
-            exit 1
-          fi
-
-      - name: Run Rust tests
-        run: |
-          cargo test -p signals-relay-core --locked
-          cargo test -p signals-relay --locked
-
-      - name: Package the core crate artifact
-        shell: bash
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-
-          cargo package -p signals-relay-core --locked
-
-          artifact_dir="$RELEASE_ROOT/$VERSION/core"
-          mkdir -p "$artifact_dir"
-
-          crate_file="target/package/signals-relay-core-$VERSION.crate"
-          cp "$crate_file" "$artifact_dir/"
-
-          cat > "$artifact_dir/manifest.json" <<EOF
-          {
-            "tag": "${{ steps.version.outputs.tag }}",
-            "version": "$VERSION",
-            "commit": "${{ github.sha }}",
-            "crate": "$(basename "$crate_file")"
-          }
-          EOF
-
-      - name: Install cargo-lambda
-        run: cargo install cargo-lambda --locked --version "$CARGO_LAMBDA_VERSION"
-
-      - name: Install AWS SAM CLI
-        run: python3 -m pip install "aws-sam-cli==$AWS_SAM_CLI_VERSION"
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-
-      - name: Build the SAM application
-        run: sam build --template-file "${{ steps.sam_template.outputs.path }}" --beta-features
-
-      - name: Package the SAM application
-        shell: bash
-        env:
-          PACKAGE_BUCKET: ${{ secrets.SAR_ARTIFACT_BUCKET }}
-          SAM_TEMPLATE: ${{ steps.sam_template.outputs.path }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-
-          if [[ -z "${PACKAGE_BUCKET:-}" ]]; then
-            echo "::error::SAR_ARTIFACT_BUCKET secret is required."
-            exit 1
-          fi
-
-          artifact_dir="$RELEASE_ROOT/$VERSION/app"
-          mkdir -p "$artifact_dir"
-          packaged_template="$artifact_dir/packaged.yaml"
-          built_template=".aws-sam/build/$SAM_TEMPLATE"
-
-          sam package \
-            --template-file "$built_template" \
-            --s3-bucket "$PACKAGE_BUCKET" \
-            --s3-prefix "signals-relay/releases/$VERSION/app" \
-            --output-template-file "$packaged_template"
-
-          packaged_semantic_version="$(
-            sed -nE 's/^[[:space:]]*SemanticVersion:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$packaged_template" | head -n1
-          )"
-          packaged_license_url="$(
-            sed -nE 's/^[[:space:]]*LicenseUrl:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$packaged_template" | head -n1
-          )"
-          packaged_readme_url="$(
-            sed -nE 's/^[[:space:]]*ReadmeUrl:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$packaged_template" | head -n1
-          )"
-
-          if [[ "$packaged_semantic_version" != "$VERSION" ]]; then
-            echo "::error::Packaged template SemanticVersion $packaged_semantic_version does not match tag version $VERSION"
-            exit 1
-          fi
-
-          if [[ ! "$packaged_license_url" =~ ^s3:// ]]; then
-            echo "::error::Packaged template LicenseUrl must be an s3:// URL, got '$packaged_license_url'"
-            exit 1
-          fi
-
-          if [[ ! "$packaged_readme_url" =~ ^s3:// ]]; then
-            echo "::error::Packaged template ReadmeUrl must be an s3:// URL, got '$packaged_readme_url'"
-            exit 1
-          fi
-
-          cat > "$artifact_dir/manifest.json" <<EOF
-          {
-            "tag": "${{ steps.version.outputs.tag }}",
-            "version": "$VERSION",
-            "commit": "${{ github.sha }}",
-            "packagedTemplate": "packaged.yaml",
-            "repository": "https://github.com/dev7a/signals-relay"
-          }
-          EOF
-
-      - name: Publish to Serverless Application Repository
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-
-          sam publish \
-            --template "$RELEASE_ROOT/$VERSION/app/packaged.yaml" \
-            --region "$AWS_REGION" \
-            --semantic-version "$VERSION"
-
-      - name: Upload release artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: signals-relay-${{ steps.version.outputs.version }}
-          path: ${{ env.RELEASE_ROOT }}/${{ steps.version.outputs.version }}
-          if-no-files-found: error
-          retention-days: 14
+  publish_from_tag:
+    if: github.event_name == 'push'
+    name: Publish release from pushed tag
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/publish-release.yml
+    with:
+      release_tag: ${{ github.ref_name }}
+    secrets: inherit
