@@ -274,17 +274,17 @@ jobs:
           packaged_readme_url="$(scripts/normalize-yaml-scalar.sh "$packaged_readme_url_raw")"
 
           if [[ -z "$packaged_semantic_version" ]]; then
-            echo "::error::Packaged template is missing Metadata.AWS::ServerlessRepo::Application.SemanticVersion"
+            echo "::error::Packaged template '$packaged_template' is missing Metadata.AWS::ServerlessRepo::Application.SemanticVersion"
             exit 1
           fi
 
           if [[ -z "$packaged_license_url" ]]; then
-            echo "::error::Packaged template is missing Metadata.AWS::ServerlessRepo::Application.LicenseUrl"
+            echo "::error::Packaged template '$packaged_template' is missing Metadata.AWS::ServerlessRepo::Application.LicenseUrl"
             exit 1
           fi
 
           if [[ -z "$packaged_readme_url" ]]; then
-            echo "::error::Packaged template is missing Metadata.AWS::ServerlessRepo::Application.ReadmeUrl"
+            echo "::error::Packaged template '$packaged_template' is missing Metadata.AWS::ServerlessRepo::Application.ReadmeUrl"
             exit 1
           fi
 

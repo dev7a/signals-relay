@@ -6,28 +6,11 @@ if [[ $# -ne 1 ]]; then
   exit 2
 fi
 
-value="$1"
+ruby -e '
+  require "yaml"
 
-value="${value#"${value%%[![:space:]]*}"}"
-value="${value%"${value##*[![:space:]]}"}"
-
-case "$value" in
-  \'*)
-    value="${value#\'}"
-    value="${value%%\'*}"
-    ;;
-  \"*)
-    value="${value#\"}"
-    value="${value%%\"*}"
-    ;;
-  *)
-    if [[ "$value" == \#* ]]; then
-      value=""
-    else
-      value="${value%%[[:space:]]#*}"
-      value="${value%"${value##*[![:space:]]}"}"
-    fi
-    ;;
-esac
-
-printf '%s\n' "$value"
+  scalar = ARGV.fetch(0)
+  document = YAML.safe_load("value: #{scalar}\n", permitted_classes: [], aliases: false) || {}
+  value = document["value"]
+  puts(value.nil? ? "" : value.to_s)
+' "$1"
