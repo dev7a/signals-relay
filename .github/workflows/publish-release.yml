@@ -190,18 +190,9 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
 
-      - name: Configure Cargo Lambda for native ARM builds
-        shell: bash
-        working-directory: processor
-        run: |
-          set -euo pipefail
-
-          cat > CargoLambda.toml <<'EOF'
-          [build]
-          compiler = "cargo"
-          EOF
-
       - name: Build the SAM application
+        env:
+          CARGO_LAMBDA_COMPILER: cargo
         run: sam build --template-file "${{ steps.sam_template.outputs.path }}" --beta-features
 
       - name: Package the SAM application
