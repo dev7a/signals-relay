@@ -101,7 +101,7 @@ sam build --template-file template.yaml
 sam deploy --config-env collector --stack-name signals-relay
 ```
 
-Direct mode is the default. Set `OtlpTargetSecretArn` in `samconfig.toml` for a secret-backed direct export path, or use `ExportMode=collector` together with `CollectorExtensionArn` for collector-backed export.
+Direct mode is the default. Create the shared `signals-relay/secrets/collector` secret before deploying, and the app will use it in direct mode by default. Use `ExportMode=collector` together with `CollectorExtensionArn` for collector-backed export.
 
 ## Consumer Upgrade
 

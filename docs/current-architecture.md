@@ -22,7 +22,7 @@ This repository is solving one specific problem: convert Application Signals `aw
 
 - `ExportMode=direct`
 - Default deployment mode
-- The relay fetches an OTLP target secret from Secrets Manager at startup
+- The relay fetches the shared `signals-relay/secrets/collector` secret from Secrets Manager at startup
 - The target secret uses this JSON shape:
 
 ```json
@@ -35,7 +35,6 @@ This repository is solving one specific problem: convert Application Signals `aw
 }
 ```
 
-- If `OtlpTargetSecretArn` is not set, direct mode falls back to standard `OTEL_EXPORTER_OTLP_*` environment variables
 - Relay export payloads are gzip-compressed by default
 
 ### Collector
@@ -44,8 +43,8 @@ This repository is solving one specific problem: convert Application Signals `aw
 - Requires `CollectorExtensionArn` from the upstream `open-telemetry/opentelemetry-lambda` release set
 - The relay sends OTLP HTTP/protobuf to `http://localhost:4318`
 - The collector config comes from the checked-in `config/collector.yaml` layer at `/opt/collector.yaml`
-- The fixed `collector/secrets` secret uses the same `{endpoint, headers}` JSON shape as direct mode
-- That config resolves the fixed `collector/secrets` secret via `${secretsmanager:collector/secrets#endpoint}` and `${secretsmanager:collector/secrets#headers}`
+- The shared `signals-relay/secrets/collector` secret uses the same `{endpoint, headers}` JSON shape as direct mode
+- That config resolves the shared `signals-relay/secrets/collector` secret via `${secretsmanager:signals-relay/secrets/collector#endpoint}` and `${secretsmanager:signals-relay/secrets/collector#headers}`
 - Collector egress is gzip-compressed
 - Collector internal telemetry is looped back through `localhost:4318` so it reuses the normal exporter pipeline
 

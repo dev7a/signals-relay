@@ -80,7 +80,7 @@ This design exists because `aws/spans` usually arrives from CloudWatch Logs in v
 
 `direct` is the default deployment mode.
 
-1. Create a Secrets Manager secret for the OTLP target:
+1. Create the shared Secrets Manager secret for the OTLP target at `signals-relay/secrets/collector`:
 
 ```json
 {
@@ -92,7 +92,7 @@ This design exists because `aws/spans` usually arrives from CloudWatch Logs in v
 }
 ```
 
-2. Copy the example SAM config and set `OtlpTargetSecretArn`:
+2. Copy the example SAM config:
 
 ```bash
 cp samconfig.example.toml samconfig.toml
@@ -109,7 +109,7 @@ sam deploy --stack-name signals-relay
 
 Use `collector` mode when you want the relay Lambda to send OTLP to the upstream OpenTelemetry Lambda collector extension at `http://localhost:4318`.
 
-1. Create or update the fixed `collector/secrets` secret in the same account and region:
+1. Create or update the shared `signals-relay/secrets/collector` secret in the same account and region:
 
 ```json
 {
@@ -132,17 +132,17 @@ sam deploy --config-env collector --stack-name signals-relay
 
 Collector mode requires a layer ARN published by the upstream [open-telemetry/opentelemetry-lambda releases](https://github.com/open-telemetry/opentelemetry-lambda/releases). The example config currently shows the `us-east-1` `arm64` `0_21_0` ARN as an example value, but you should verify the latest release for your region and architecture before deploying.
 
-Collector mode uses the checked-in [`config/collector.yaml`](./config/collector.yaml) layer at `/opt/collector.yaml`. That config resolves the fixed `collector/secrets` secret via `${secretsmanager:collector/secrets#endpoint}` and `${secretsmanager:collector/secrets#headers}`.
+Collector mode uses the checked-in [`config/collector.yaml`](./config/collector.yaml) layer at `/opt/collector.yaml`. That config resolves the shared `signals-relay/secrets/collector` secret via `${secretsmanager:signals-relay/secrets/collector#endpoint}` and `${secretsmanager:signals-relay/secrets/collector#headers}`.
 
 ## Configuration Reference
 
 - `ExportMode`
-  - `direct` is the default.
+  - `direct` is the default and uses the shared OTLP secret.
   - `collector` requires `CollectorExtensionArn`.
-- `OtlpTargetSecretArn`
-  - Used only in direct mode.
-  - If set, the relay reads the target secret once during Lambda startup and keeps it in memory for the lifetime of that execution environment.
-  - If not set, direct mode falls back to standard `OTEL_EXPORTER_OTLP_*` environment variables for endpoint and headers.
+- Shared OTLP secret
+  - Both export modes read `signals-relay/secrets/collector`.
+  - The secret uses the `{endpoint, headers}` JSON shape shown above.
+  - The relay reads it once during Lambda startup and keeps it in memory for the lifetime of that execution environment.
 - `DeploymentId`
   - Optional no-op deployment marker.
   - Change it when you want CloudFormation to force a fresh rollout after rotating secrets.

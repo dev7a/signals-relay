@@ -114,7 +114,6 @@ async fn main() -> Result<(), LambdaError> {
         RelayExportTarget::Collector => exporter_builder
             .with_endpoint(collector_local_otlp_endpoint().to_string())
             .build()?,
-        RelayExportTarget::DirectEnv => exporter_builder.build()?,
         RelayExportTarget::Direct(target) => exporter_builder
             .with_endpoint(target.endpoint().to_string())
             .with_headers(target.header_map_for_exporter())

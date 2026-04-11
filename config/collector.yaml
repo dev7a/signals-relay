@@ -8,8 +8,8 @@ receivers:
 
 exporters:
   otlp_http/default:
-    endpoint: ${secretsmanager:collector/secrets#endpoint}
-    headers: ${secretsmanager:collector/secrets#headers}
+    endpoint: ${secretsmanager:signals-relay/secrets/collector#endpoint}
+    headers: ${secretsmanager:signals-relay/secrets/collector#headers}
     compression: gzip
 
 service:

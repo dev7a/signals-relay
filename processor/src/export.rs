@@ -20,14 +20,14 @@ use tracing::warn;
 
 const COLLECTOR_LOCAL_OTLP_ENDPOINT: &str = "http://localhost:4318/v1/traces";
 const DEFAULT_OTLP_EXPORT_TIMEOUT: Duration = Duration::from_secs(10);
+const DEFAULT_OTLP_TARGET_SECRET_ID: &str = "signals-relay/secrets/collector";
 const OTLP_TRACES_PATH: &str = "/v1/traces";
-const OTLP_TARGET_SECRET_ARN_ENV: &str = "OTLP_TARGET_SECRET_ARN";
+const OTLP_TARGET_SECRET_ID_ENV: &str = "OTLP_TARGET_SECRET_ID";
 const COLLECTOR_CONFIG_URI_ENV: &str = "OPENTELEMETRY_COLLECTOR_CONFIG_URI";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RelayExportTarget {
     Collector,
-    DirectEnv,
     Direct(ResolvedOtlpTarget),
 }
 
@@ -116,11 +116,9 @@ pub async fn resolve_relay_export_target_with_provider(
         return Ok(RelayExportTarget::Collector);
     }
 
-    let Some(secret_arn) = optional_env(OTLP_TARGET_SECRET_ARN_ENV)? else {
-        return Ok(RelayExportTarget::DirectEnv);
-    };
-
-    let target = resolve_direct_otlp_target(provider, &secret_arn).await?;
+    let secret_id = optional_env(OTLP_TARGET_SECRET_ID_ENV)?
+        .unwrap_or_else(|| DEFAULT_OTLP_TARGET_SECRET_ID.to_string());
+    let target = resolve_direct_otlp_target(provider, &secret_id).await?;
     Ok(RelayExportTarget::Direct(target))
 }
 
@@ -130,9 +128,7 @@ pub async fn send_compacted_telemetry_batch(
     export_target: &RelayExportTarget,
 ) -> Result<()> {
     match export_target {
-        RelayExportTarget::Collector | RelayExportTarget::DirectEnv => {
-            send_telemetry_batch(client, telemetry_data).await
-        }
+        RelayExportTarget::Collector => send_telemetry_batch(client, telemetry_data).await,
         RelayExportTarget::Direct(target) => {
             send_direct_telemetry_batch(client, telemetry_data, target).await
         }
@@ -145,9 +141,9 @@ pub fn collector_local_otlp_endpoint() -> &'static str {
 
 async fn resolve_direct_otlp_target(
     provider: &impl OtlpTargetSecretProvider,
-    secret_arn: &str,
+    secret_id: &str,
 ) -> Result<ResolvedOtlpTarget> {
-    let secret_string = provider.get_secret_string(secret_arn).await?;
+    let secret_string = provider.get_secret_string(secret_id).await?;
     parse_target_secret_document(&secret_string)
 }
 
@@ -297,7 +293,7 @@ mod tests {
     impl EnvGuard {
         fn set(pairs: &[(&'static str, &'static str)]) -> Self {
             let tracked = [
-                OTLP_TARGET_SECRET_ARN_ENV,
+                OTLP_TARGET_SECRET_ID_ENV,
                 COLLECTOR_CONFIG_URI_ENV,
                 "OTEL_EXPORTER_OTLP_TRACES_TIMEOUT",
                 "OTEL_EXPORTER_OTLP_TIMEOUT",
@@ -331,12 +327,17 @@ mod tests {
     struct FakeSecretProvider {
         secret_string: String,
         fetch_count: Arc<AtomicUsize>,
+        requested_secret_ids: Arc<Mutex<Vec<String>>>,
     }
 
     #[async_trait]
     impl OtlpTargetSecretProvider for FakeSecretProvider {
-        async fn get_secret_string(&self, _secret_id: &str) -> Result<String> {
+        async fn get_secret_string(&self, secret_id: &str) -> Result<String> {
             self.fetch_count.fetch_add(1, Ordering::SeqCst);
+            self.requested_secret_ids
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .push(secret_id.to_string());
             Ok(self.secret_string.clone())
         }
     }
@@ -348,7 +349,7 @@ mod tests {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _env = EnvGuard::set(&[(
-            OTLP_TARGET_SECRET_ARN_ENV,
+            OTLP_TARGET_SECRET_ID_ENV,
             "arn:aws:secretsmanager:us-east-1:111111111111:secret:test",
         )]);
         let provider = FakeSecretProvider {
@@ -361,6 +362,7 @@ mod tests {
             })
             .to_string(),
             fetch_count: Arc::new(AtomicUsize::new(0)),
+            requested_secret_ids: Arc::new(Mutex::new(Vec::new())),
         };
 
         let target = resolve_relay_export_target_with_provider(&provider)
@@ -381,7 +383,7 @@ mod tests {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _env = EnvGuard::set(&[(
-            OTLP_TARGET_SECRET_ARN_ENV,
+            OTLP_TARGET_SECRET_ID_ENV,
             "arn:aws:secretsmanager:us-east-1:111111111111:secret:test",
         )]);
         let provider = FakeSecretProvider {
@@ -392,6 +394,7 @@ mod tests {
             })
             .to_string(),
             fetch_count: Arc::new(AtomicUsize::new(0)),
+            requested_secret_ids: Arc::new(Mutex::new(Vec::new())),
         };
 
         let err = resolve_relay_export_target_with_provider(&provider)
@@ -407,7 +410,7 @@ mod tests {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _env = EnvGuard::set(&[(
-            OTLP_TARGET_SECRET_ARN_ENV,
+            OTLP_TARGET_SECRET_ID_ENV,
             "arn:aws:secretsmanager:us-east-1:111111111111:secret:test",
         )]);
         let provider = FakeSecretProvider {
@@ -416,6 +419,7 @@ mod tests {
             })
             .to_string(),
             fetch_count: Arc::new(AtomicUsize::new(0)),
+            requested_secret_ids: Arc::new(Mutex::new(Vec::new())),
         };
 
         let target = resolve_relay_export_target_with_provider(&provider)
@@ -436,7 +440,7 @@ mod tests {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _env = EnvGuard::set(&[(
-            OTLP_TARGET_SECRET_ARN_ENV,
+            OTLP_TARGET_SECRET_ID_ENV,
             "arn:aws:secretsmanager:us-east-1:111111111111:secret:test",
         )]);
         let fetch_count = Arc::new(AtomicUsize::new(0));
@@ -446,6 +450,7 @@ mod tests {
             })
             .to_string(),
             fetch_count: Arc::clone(&fetch_count),
+            requested_secret_ids: Arc::new(Mutex::new(Vec::new())),
         };
 
         let _ = resolve_relay_export_target_with_provider(&provider)
@@ -469,6 +474,7 @@ mod tests {
             })
             .to_string(),
             fetch_count: Arc::clone(&fetch_count),
+            requested_secret_ids: Arc::new(Mutex::new(Vec::new())),
         };
 
         let target = resolve_relay_export_target_with_provider(&provider)
@@ -479,25 +485,38 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn falls_back_to_standard_otlp_env_when_secret_is_not_set() {
+    async fn defaults_to_shared_secret_when_secret_is_not_set() {
         let _guard = TEST_MUTEX
             .get_or_init(|| Mutex::new(()))
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _env = EnvGuard::set(&[]);
         let fetch_count = Arc::new(AtomicUsize::new(0));
+        let requested_secret_ids = Arc::new(Mutex::new(Vec::new()));
         let provider = FakeSecretProvider {
             secret_string: json!({
                 "endpoint": "https://example.com"
             })
             .to_string(),
             fetch_count: Arc::clone(&fetch_count),
+            requested_secret_ids: Arc::clone(&requested_secret_ids),
         };
 
         let target = resolve_relay_export_target_with_provider(&provider)
             .await
             .unwrap();
-        assert!(matches!(target, RelayExportTarget::DirectEnv));
-        assert_eq!(fetch_count.load(Ordering::SeqCst), 0);
+
+        let RelayExportTarget::Direct(target) = target else {
+            panic!("expected direct target");
+        };
+        assert_eq!(target.endpoint(), "https://example.com/v1/traces");
+        assert_eq!(fetch_count.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            requested_secret_ids
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .as_slice(),
+            &[DEFAULT_OTLP_TARGET_SECRET_ID.to_string()]
+        );
     }
 }
