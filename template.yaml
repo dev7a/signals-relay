@@ -51,7 +51,7 @@ Parameters:
     Type: String
     Default: ""
     AllowedPattern: "^(|arn:[a-zA-Z0-9-]+:lambda:[a-zA-Z0-9-]+:\\d{12}:layer:[a-zA-Z0-9-_]+:[0-9]+)$"
-    ConstraintDescription: Must be empty in direct mode or a valid OpenTelemetry Lambda collector layer ARN.
+    ConstraintDescription: Must be empty or a valid OpenTelemetry Lambda collector layer ARN.
     Description: ARN of the upstream OpenTelemetry Lambda collector extension layer. Required when ExportMode=collector.
 
 Rules:
@@ -184,7 +184,7 @@ Resources:
             - Effect: Allow
               Action:
                 - "secretsmanager:GetSecretValue"
-              Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:signals-relay/secrets/collector*"
+              Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:signals-relay/secrets/collector-*"
       Layers:
         - !If [UseCollectorExport, !Ref CollectorConfig, !Ref AWS::NoValue]
         - !If [UseCollectorExport, !Ref CollectorExtensionArn, !Ref AWS::NoValue]
