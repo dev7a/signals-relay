@@ -6,7 +6,7 @@ Metadata:
   cfn-lint:
     config:
       ignore_checks:
-        - W1030
+        - W1030 # False positive for the optional collector layer ARN parameter.
   AWS::ServerlessRepo::Application:
     Name: signals-relay
     Description: Deployable AWS SAM application that converts Application Signals aws/spans records into OTLP trace payloads.
