@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
-"""Generate a local samconfig.toml from the checked-in template."""
+"""Generate a local samconfig.toml from the checked-in template.
+
+Requires Python 3.11+.
+"""
 
 from __future__ import annotations
 
 import argparse
 import os
 import sys
-import tomllib
 from pathlib import Path
 from string import Template
+
+if sys.version_info < (3, 11):
+    raise SystemExit("scripts/init_samconfig.py requires python3.11 or newer")
+
+import tomllib
 
 
 DEFAULT_COLLECTOR_EXTENSION_ARN = (
@@ -21,6 +28,11 @@ REQUIRED_ENV_VARS = {
     "PUBLIC_PROFILE": "SIGNALS_RELAY_PUBLIC_PROFILE",
     "PUBLIC_SAR_BUCKET": "SIGNALS_RELAY_PUBLIC_SAR_BUCKET",
     "DEPLOYMENT_ID": "SIGNALS_RELAY_DEPLOYMENT_ID",
+}
+
+PLACEHOLDER_ENV_VARS = {
+    **REQUIRED_ENV_VARS,
+    "COLLECTOR_EXTENSION_ARN": "SIGNALS_RELAY_COLLECTOR_EXTENSION_ARN",
 }
 
 
@@ -75,16 +87,28 @@ def validate_rendered_toml(text: str) -> None:
     if "${" in text:
         raise SystemExit("Generated samconfig.toml still contains unresolved placeholders")
 
-    if "OtlpTargetSecretArn=" in text:
-        raise SystemExit("Generated samconfig.toml still contains removed OtlpTargetSecretArn")
+    parsed = tomllib.loads(text)
+    stale_overrides: list[str] = []
 
-    if "collector/secrets" in text:
-        raise SystemExit("Generated samconfig.toml still contains stale collector/secrets path")
+    for config_env in ("default", "collector"):
+        overrides = (
+            parsed.get(config_env, {})
+            .get("deploy", {})
+            .get("parameters", {})
+            .get("parameter_overrides", [])
+        )
+        for override in overrides:
+            if override.startswith("OtlpTargetSecretArn="):
+                stale_overrides.append(override)
+            if "collector/secrets" in override:
+                stale_overrides.append(override)
 
-    if "signals-relay/secrets/collector" not in text:
-        raise SystemExit("Generated samconfig.toml is missing the shared secret contract")
-
-    tomllib.loads(text)
+    if stale_overrides:
+        formatted = ", ".join(sorted(stale_overrides))
+        raise SystemExit(
+            "Generated samconfig.toml still contains stale secret contract overrides: "
+            f"{formatted}"
+        )
 
 
 def main() -> int:
@@ -103,7 +127,20 @@ def main() -> int:
         )
 
     template = Template(template_path.read_text())
-    rendered = template.substitute(load_template_values())
+    values = load_template_values()
+    try:
+        rendered = template.substitute(values)
+    except KeyError as exc:
+        missing_placeholder = exc.args[0]
+        env_name = PLACEHOLDER_ENV_VARS.get(missing_placeholder)
+        if env_name is not None:
+            raise SystemExit(
+                "Template contains placeholder "
+                f"${{{missing_placeholder}}} but environment variable {env_name} is not set"
+            ) from None
+        raise SystemExit(
+            f"Template contains unexpected placeholder: ${{{missing_placeholder}}}"
+        ) from None
     validate_rendered_toml(rendered)
     output_path.write_text(rendered)
     print(f"Wrote {output_path}")
