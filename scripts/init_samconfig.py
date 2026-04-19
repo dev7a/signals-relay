@@ -89,7 +89,7 @@ def load_template_values() -> dict[str, str]:
     values["COLLECTOR_EXTENSION_ARN"] = os.environ.get(
         "SIGNALS_RELAY_COLLECTOR_EXTENSION_ARN",
         DEFAULT_COLLECTOR_EXTENSION_ARN,
-    )
+    ) or DEFAULT_COLLECTOR_EXTENSION_ARN
     return values
 
 
