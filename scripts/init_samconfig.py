@@ -23,12 +23,12 @@ DEFAULT_COLLECTOR_EXTENSION_ARN = (
     "opentelemetry-collector-arm64-0_21_0:1"
 )
 DEFAULT_DEPLOY_REGION = "us-east-1"
-DEFAULT_PUBLIC_PROFILE = "replace-with-public-profile"
-DEFAULT_PUBLIC_SAR_BUCKET = "replace-with-public-sar-artifacts-bucket"
 
 REQUIRED_ENV_VARS = {
     "MONITORING_PROFILE": "SIGNALS_RELAY_MONITORING_PROFILE",
     "DEPLOYMENT_ID": "SIGNALS_RELAY_DEPLOYMENT_ID",
+    "PUBLIC_PROFILE": "SIGNALS_RELAY_PUBLIC_PROFILE",
+    "PUBLIC_SAR_BUCKET": "SIGNALS_RELAY_PUBLIC_SAR_BUCKET",
 }
 
 PLACEHOLDER_ENV_VARS = {
@@ -80,18 +80,10 @@ def load_template_values() -> dict[str, str]:
         missing_list = ", ".join(sorted(missing))
         raise SystemExit(f"Missing required environment variables: {missing_list}")
 
-    values["PUBLIC_PROFILE"] = os.environ.get(
-        "SIGNALS_RELAY_PUBLIC_PROFILE",
-        DEFAULT_PUBLIC_PROFILE,
-    ) or DEFAULT_PUBLIC_PROFILE
     values["DEPLOY_REGION"] = os.environ.get(
         "SIGNALS_RELAY_REGION",
         DEFAULT_DEPLOY_REGION,
     ) or DEFAULT_DEPLOY_REGION
-    values["PUBLIC_SAR_BUCKET"] = os.environ.get(
-        "SIGNALS_RELAY_PUBLIC_SAR_BUCKET",
-        DEFAULT_PUBLIC_SAR_BUCKET,
-    ) or DEFAULT_PUBLIC_SAR_BUCKET
     values["COLLECTOR_EXTENSION_ARN"] = os.environ.get(
         "SIGNALS_RELAY_COLLECTOR_EXTENSION_ARN",
         DEFAULT_COLLECTOR_EXTENSION_ARN,
