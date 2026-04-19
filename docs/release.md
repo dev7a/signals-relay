@@ -90,8 +90,6 @@ For local installs from source:
 
 ```bash
 export SIGNALS_RELAY_MONITORING_PROFILE="monitoring.admin"
-export SIGNALS_RELAY_PUBLIC_PROFILE="public.admin"
-export SIGNALS_RELAY_PUBLIC_SAR_BUCKET="replace-with-public-sar-artifacts-bucket"
 export SIGNALS_RELAY_DEPLOYMENT_ID="replace-me"
 python3.11 ./scripts/init_samconfig.py
 sam build --template-file template.yaml
@@ -99,7 +97,11 @@ sam deploy --stack-name signals-relay
 ```
 
 The generator renders the ignored local `samconfig.toml` from the checked-in
-`samconfig.example.toml` template and requires Python 3.11+.
+`samconfig.example.toml` template and requires Python 3.11+. Set
+`SIGNALS_RELAY_PUBLIC_PROFILE` and `SIGNALS_RELAY_PUBLIC_SAR_BUCKET` before
+running it when you also want the `public_publish` environment ready for manual
+SAR publication; otherwise the generator writes obvious placeholder values for
+that config env.
 
 For collector mode:
 

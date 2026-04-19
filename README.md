@@ -96,14 +96,15 @@ This design exists because `aws/spans` usually arrives from CloudWatch Logs in v
 
 ```bash
 export SIGNALS_RELAY_MONITORING_PROFILE="monitoring.admin"
-export SIGNALS_RELAY_PUBLIC_PROFILE="public.admin"
-export SIGNALS_RELAY_PUBLIC_SAR_BUCKET="replace-with-public-sar-artifacts-bucket"
 export SIGNALS_RELAY_DEPLOYMENT_ID="replace-me"
 python3.11 ./scripts/init_samconfig.py
 ```
 
 The generator renders `samconfig.toml` from `samconfig.example.toml`. It
 requires Python 3.11+ and also accepts an optional
+`SIGNALS_RELAY_PUBLIC_PROFILE` /
+`SIGNALS_RELAY_PUBLIC_SAR_BUCKET` pair when you want a ready-to-use
+`public_publish` config, plus an optional
 `SIGNALS_RELAY_COLLECTOR_EXTENSION_ARN` override when you do not want to use the
 default collector layer example.
 

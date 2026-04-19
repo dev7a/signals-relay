@@ -22,16 +22,18 @@ DEFAULT_COLLECTOR_EXTENSION_ARN = (
     "arn:aws:lambda:us-east-1:184161586896:layer:"
     "opentelemetry-collector-arm64-0_21_0:1"
 )
+DEFAULT_PUBLIC_PROFILE = "replace-with-public-profile"
+DEFAULT_PUBLIC_SAR_BUCKET = "replace-with-public-sar-artifacts-bucket"
 
 REQUIRED_ENV_VARS = {
     "MONITORING_PROFILE": "SIGNALS_RELAY_MONITORING_PROFILE",
-    "PUBLIC_PROFILE": "SIGNALS_RELAY_PUBLIC_PROFILE",
-    "PUBLIC_SAR_BUCKET": "SIGNALS_RELAY_PUBLIC_SAR_BUCKET",
     "DEPLOYMENT_ID": "SIGNALS_RELAY_DEPLOYMENT_ID",
 }
 
 PLACEHOLDER_ENV_VARS = {
     **REQUIRED_ENV_VARS,
+    "PUBLIC_PROFILE": "SIGNALS_RELAY_PUBLIC_PROFILE",
+    "PUBLIC_SAR_BUCKET": "SIGNALS_RELAY_PUBLIC_SAR_BUCKET",
     "COLLECTOR_EXTENSION_ARN": "SIGNALS_RELAY_COLLECTOR_EXTENSION_ARN",
 }
 
@@ -67,7 +69,7 @@ def load_template_values() -> dict[str, str]:
 
     for template_key, env_name in REQUIRED_ENV_VARS.items():
         value = os.environ.get(env_name)
-        if not value:
+        if value is None or value == "":
             missing.append(env_name)
             continue
         values[template_key] = value
@@ -76,6 +78,14 @@ def load_template_values() -> dict[str, str]:
         missing_list = ", ".join(sorted(missing))
         raise SystemExit(f"Missing required environment variables: {missing_list}")
 
+    values["PUBLIC_PROFILE"] = os.environ.get(
+        "SIGNALS_RELAY_PUBLIC_PROFILE",
+        DEFAULT_PUBLIC_PROFILE,
+    ) or DEFAULT_PUBLIC_PROFILE
+    values["PUBLIC_SAR_BUCKET"] = os.environ.get(
+        "SIGNALS_RELAY_PUBLIC_SAR_BUCKET",
+        DEFAULT_PUBLIC_SAR_BUCKET,
+    ) or DEFAULT_PUBLIC_SAR_BUCKET
     values["COLLECTOR_EXTENSION_ARN"] = os.environ.get(
         "SIGNALS_RELAY_COLLECTOR_EXTENSION_ARN",
         DEFAULT_COLLECTOR_EXTENSION_ARN,
@@ -87,7 +97,13 @@ def validate_rendered_toml(text: str) -> None:
     if "${" in text:
         raise SystemExit("Generated samconfig.toml still contains unresolved placeholders")
 
-    parsed = tomllib.loads(text)
+    try:
+        parsed = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        location = ""
+        if getattr(exc, "lineno", None) is not None and getattr(exc, "colno", None) is not None:
+            location = f" at line {exc.lineno}, column {exc.colno}"
+        raise SystemExit(f"Generated samconfig.toml is invalid TOML{location}: {exc}") from None
     stale_overrides: list[str] = []
 
     for config_env in ("default", "collector"):
