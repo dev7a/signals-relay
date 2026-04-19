@@ -73,6 +73,8 @@ This design exists because `aws/spans` usually arrives from CloudWatch Logs in v
 ## Prerequisites
 
 - Rust `1.91` or later
+- `cargo-lambda` on your `PATH` for the `rust-cargolambda` SAM build
+- Python `3.11` or later for `./scripts/init_samconfig.py`
 - AWS SAM CLI
 - AWS credentials configured for the target account and region
 
@@ -97,11 +99,16 @@ This design exists because `aws/spans` usually arrives from CloudWatch Logs in v
 ```bash
 export SIGNALS_RELAY_MONITORING_PROFILE="monitoring.admin"
 export SIGNALS_RELAY_DEPLOYMENT_ID="replace-me"
+export SIGNALS_RELAY_REGION="us-east-1"
 python3.11 ./scripts/init_samconfig.py
 ```
 
 The generator renders `samconfig.toml` from `samconfig.example.toml`. It
 requires Python 3.11+ and also accepts an optional
+`SIGNALS_RELAY_REGION` override for the local `default` and `collector` deploy
+profiles. It defaults those local deploys to `us-east-1`. The checked-in
+`public_publish` config remains pinned to `us-east-1` for the current SAR
+publication path. The generator also accepts an optional
 `SIGNALS_RELAY_PUBLIC_PROFILE` /
 `SIGNALS_RELAY_PUBLIC_SAR_BUCKET` pair when you want a ready-to-use
 `public_publish` config, plus an optional
@@ -171,6 +178,8 @@ The generated SAM config uses:
 
 - the default deploy profile for direct mode
 - the `collector` deploy profile for collector mode
+- `SIGNALS_RELAY_REGION` if you set it, otherwise `us-east-1`
+- `us-east-1` for the `public_publish` profile
 
 ## Operational Caveats
 
@@ -186,7 +195,7 @@ The generated SAM config uses:
 ## Build And Validate
 
 ```bash
-cargo test -p signals-relay
+cargo test --workspace --locked
 sam validate --template-file template.yaml
 sam build --template-file template.yaml
 ```

@@ -91,13 +91,21 @@ For local installs from source:
 ```bash
 export SIGNALS_RELAY_MONITORING_PROFILE="monitoring.admin"
 export SIGNALS_RELAY_DEPLOYMENT_ID="replace-me"
+export SIGNALS_RELAY_REGION="us-east-1"
 python3.11 ./scripts/init_samconfig.py
 sam build --template-file template.yaml
 sam deploy --stack-name signals-relay
 ```
 
+Local source installs assume Rust `1.91` or later, `cargo-lambda` on your
+`PATH`, Python `3.11` or later, and AWS SAM CLI.
+
 The generator renders the ignored local `samconfig.toml` from the checked-in
 `samconfig.example.toml` template and requires Python 3.11+. Set
+`SIGNALS_RELAY_REGION` when the monitoring deployment should target a region
+other than `us-east-1`. The generated `default` and `collector` deploy profiles
+inherit that value, but the `public_publish` config intentionally stays pinned
+to `us-east-1` for the current SAR publication path. Set
 `SIGNALS_RELAY_PUBLIC_PROFILE` and `SIGNALS_RELAY_PUBLIC_SAR_BUCKET` before
 running it when you also want the `public_publish` environment ready for manual
 SAR publication; otherwise the generator writes obvious placeholder values for

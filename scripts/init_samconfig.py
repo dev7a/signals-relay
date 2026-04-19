@@ -22,6 +22,7 @@ DEFAULT_COLLECTOR_EXTENSION_ARN = (
     "arn:aws:lambda:us-east-1:184161586896:layer:"
     "opentelemetry-collector-arm64-0_21_0:1"
 )
+DEFAULT_DEPLOY_REGION = "us-east-1"
 DEFAULT_PUBLIC_PROFILE = "replace-with-public-profile"
 DEFAULT_PUBLIC_SAR_BUCKET = "replace-with-public-sar-artifacts-bucket"
 
@@ -32,6 +33,7 @@ REQUIRED_ENV_VARS = {
 
 PLACEHOLDER_ENV_VARS = {
     **REQUIRED_ENV_VARS,
+    "DEPLOY_REGION": "SIGNALS_RELAY_REGION",
     "PUBLIC_PROFILE": "SIGNALS_RELAY_PUBLIC_PROFILE",
     "PUBLIC_SAR_BUCKET": "SIGNALS_RELAY_PUBLIC_SAR_BUCKET",
     "COLLECTOR_EXTENSION_ARN": "SIGNALS_RELAY_COLLECTOR_EXTENSION_ARN",
@@ -82,6 +84,10 @@ def load_template_values() -> dict[str, str]:
         "SIGNALS_RELAY_PUBLIC_PROFILE",
         DEFAULT_PUBLIC_PROFILE,
     ) or DEFAULT_PUBLIC_PROFILE
+    values["DEPLOY_REGION"] = os.environ.get(
+        "SIGNALS_RELAY_REGION",
+        DEFAULT_DEPLOY_REGION,
+    ) or DEFAULT_DEPLOY_REGION
     values["PUBLIC_SAR_BUCKET"] = os.environ.get(
         "SIGNALS_RELAY_PUBLIC_SAR_BUCKET",
         DEFAULT_PUBLIC_SAR_BUCKET,

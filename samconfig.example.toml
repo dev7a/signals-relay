@@ -15,7 +15,7 @@ parallel = false
 # `signals-relay/secrets/collector` to exist in this account and region.
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = false
-region = "us-east-1"
+region = "${DEPLOY_REGION}"
 resolve_s3 = true
 parameter_overrides = [
   "ExportMode=direct",
@@ -27,7 +27,7 @@ parameter_overrides = [
 # `signals-relay/secrets/collector` to exist in this account and region.
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = false
-region = "us-east-1"
+region = "${DEPLOY_REGION}"
 resolve_s3 = true
 parameter_overrides = [
   "ExportMode=collector",
@@ -61,4 +61,5 @@ template = ".aws-sam/publish-public.yaml"
 [public_publish.global.parameters]
 beta_features = true
 profile = "${PUBLIC_PROFILE}"
+# Publication remains pinned to us-east-1 for the current SAR setup.
 region = "us-east-1"
