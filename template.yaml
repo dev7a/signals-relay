@@ -3,6 +3,10 @@ Transform: "AWS::Serverless-2016-10-31"
 Description: Deployable AWS SAM application that repartitions Application Signals aws/spans logs through Kinesis and forwards them to OpenTelemetry collectors
 
 Metadata:
+  cfn-lint:
+    config:
+      ignore_checks:
+        - W1030 # False positive for the optional collector layer ARN parameter.
   AWS::ServerlessRepo::Application:
     Name: signals-relay
     Description: Deployable AWS SAM application that converts Application Signals aws/spans records into OTLP trace payloads.
@@ -24,10 +28,6 @@ Parameters:
     Type: String
     Default: aws/spans
     Description: Log group name for spans
-  OtlpTargetSecretArn:
-    Type: String
-    Default: ""
-    Description: Optional Secrets Manager ARN for the direct relay OTLP target secret. If empty, direct mode falls back to standard OTLP environment variables.
   ExportMode:
     Type: String
     Default: direct
@@ -50,6 +50,8 @@ Parameters:
   CollectorExtensionArn:
     Type: String
     Default: ""
+    AllowedPattern: "^(|arn:[a-zA-Z0-9-]+:lambda:[a-zA-Z0-9-]+:\\d{12}:layer:[a-zA-Z0-9-_]+:[0-9]+)$"
+    ConstraintDescription: Must be empty or a valid OpenTelemetry Lambda collector layer ARN.
     Description: ARN of the upstream OpenTelemetry Lambda collector extension layer. Required when ExportMode=collector.
 
 Rules:
@@ -63,7 +65,6 @@ Rules:
 Conditions:
   HasVpcConfig: !Not [!Equals [!Ref VpcId, ""]]
   UseCollectorExport: !Equals [!Ref ExportMode, collector]
-  UseDirectExport: !Equals [!Ref ExportMode, direct]
 
 Resources:
   PartitionerPublishFailureQueue:
@@ -168,7 +169,6 @@ Resources:
           LAMBDA_TRACING_ENABLE_FMT_LAYER: false
           OTEL_EXPORTER_OTLP_TRACES_COMPRESSION: gzip
           OTEL_EXPORTER_OTLP_COMPRESSION_LEVEL: 6
-          OTLP_TARGET_SECRET_ARN: !If [UseDirectExport, !Ref OtlpTargetSecretArn, !Ref AWS::NoValue]
           OTEL_EXPORTER_OTLP_ENDPOINT: !If [UseCollectorExport, http://localhost:4318, !Ref AWS::NoValue]
           OTEL_EXPORTER_OTLP_PROTOCOL: !If [UseCollectorExport, http/protobuf, !Ref AWS::NoValue]
           OPENTELEMETRY_COLLECTOR_CONFIG_URI: !If [UseCollectorExport, /opt/collector.yaml, !Ref AWS::NoValue]
@@ -181,20 +181,10 @@ Resources:
                 - "xray:PutSpans"
                 - "xray:PutSpansForIndexing"
               Resource: "*"
-            - !If
-              - UseDirectExport
-              - Effect: Allow
-                Action:
-                  - "secretsmanager:GetSecretValue"
-                Resource: !Ref OtlpTargetSecretArn
-              - !Ref AWS::NoValue
-            - !If
-              - UseCollectorExport
-              - Effect: Allow
-                Action:
-                  - "secretsmanager:GetSecretValue"
-                Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:collector/secrets*"
-              - !Ref AWS::NoValue
+            - Effect: Allow
+              Action:
+                - "secretsmanager:GetSecretValue"
+              Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:signals-relay/secrets/collector-*"
       Layers:
         - !If [UseCollectorExport, !Ref CollectorConfig, !Ref AWS::NoValue]
         - !If [UseCollectorExport, !Ref CollectorExtensionArn, !Ref AWS::NoValue]

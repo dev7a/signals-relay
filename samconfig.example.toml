@@ -7,17 +7,20 @@ parallel = false
 [default.validate.parameters]
 
 [default.deploy.parameters]
+# Both export modes expect the shared OTLP secret
+# `signals-relay/secrets/collector` to exist in this account and region.
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = false
 region = "us-east-1"
 resolve_s3 = true
 parameter_overrides = [
   "ExportMode=direct",
-  "OtlpTargetSecretArn=arn:aws:secretsmanager:us-east-1:111111111111:secret:replace-me",
   "DeploymentId=replace-me",
 ]
 
 [collector.deploy.parameters]
+# Both export modes expect the shared OTLP secret
+# `signals-relay/secrets/collector` to exist in this account and region.
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = false
 region = "us-east-1"
