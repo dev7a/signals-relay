@@ -100,7 +100,7 @@ This design exists because `aws/spans` usually arrives from CloudWatch Logs in v
 export SIGNALS_RELAY_MONITORING_PROFILE="monitoring.admin"
 export SIGNALS_RELAY_DEPLOYMENT_ID="replace-me"
 export SIGNALS_RELAY_REGION="us-east-1"
-python3.11 ./scripts/init_samconfig.py
+python3 ./scripts/init_samconfig.py
 ```
 
 The generator renders `samconfig.toml` from `samconfig.example.toml`. It

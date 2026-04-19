@@ -92,7 +92,7 @@ For local installs from source:
 export SIGNALS_RELAY_MONITORING_PROFILE="monitoring.admin"
 export SIGNALS_RELAY_DEPLOYMENT_ID="replace-me"
 export SIGNALS_RELAY_REGION="us-east-1"
-python3.11 ./scripts/init_samconfig.py
+python3 ./scripts/init_samconfig.py
 sam build --template-file template.yaml
 sam deploy --stack-name signals-relay
 ```
