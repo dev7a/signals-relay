@@ -140,9 +140,10 @@ Collector mode uses the checked-in [`config/collector.yaml`](./config/collector.
   - `direct` is the default and uses the shared OTLP secret.
   - `collector` requires `CollectorExtensionArn`.
 - Shared OTLP secret
-  - Both export modes read `signals-relay/secrets/collector`.
+  - Both export modes use `signals-relay/secrets/collector`.
   - The secret uses the `{endpoint, headers}` JSON shape shown above.
-  - The relay reads it once during Lambda startup and keeps it in memory for the lifetime of that execution environment.
+  - In `direct` mode, the relay reads it once during Lambda startup and keeps it in memory for the lifetime of that execution environment.
+  - In `collector` mode, the collector extension resolves the same secret from `/opt/collector.yaml`.
 - `DeploymentId`
   - Optional no-op deployment marker.
   - Change it when you want CloudFormation to force a fresh rollout after rotating secrets.
