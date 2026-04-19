@@ -1,5 +1,9 @@
 version = 0.1
 
+# This file doubles as the local `samconfig.toml` template for
+# `scripts/init_samconfig.py`. Keep the variable placeholders intact for values
+# that are intended to be filled from local environment variables.
+
 [default.build.parameters]
 cached = true
 parallel = false
@@ -15,7 +19,7 @@ region = "us-east-1"
 resolve_s3 = true
 parameter_overrides = [
   "ExportMode=direct",
-  "DeploymentId=replace-me",
+  "DeploymentId=${DEPLOYMENT_ID}",
 ]
 
 [collector.deploy.parameters]
@@ -27,16 +31,18 @@ region = "us-east-1"
 resolve_s3 = true
 parameter_overrides = [
   "ExportMode=collector",
-  "DeploymentId=replace-me",
-  "CollectorExtensionArn=arn:aws:lambda:us-east-1:184161586896:layer:opentelemetry-collector-arm64-0_21_0:1",
+  "DeploymentId=${DEPLOYMENT_ID}",
+  "CollectorExtensionArn=${COLLECTOR_EXTENSION_ARN}",
 ]
 
 [default.global.parameters]
 beta_features = true
+profile = "${MONITORING_PROFILE}"
 stack_name = "signals-relay"
 tags = "application=signals-relay"
 
 [collector.global.parameters]
+profile = "${MONITORING_PROFILE}"
 stack_name = "signals-relay"
 
 [public_publish.build.parameters]
@@ -45,7 +51,7 @@ parallel = false
 
 [public_publish.package.parameters]
 template_file = ".aws-sam/build/template.yaml"
-s3_bucket = "replace-with-public-sar-artifacts-bucket"
+s3_bucket = "${PUBLIC_SAR_BUCKET}"
 s3_prefix = "signals-relay/manual"
 output_template_file = ".aws-sam/publish-public.yaml"
 
@@ -54,4 +60,5 @@ template = ".aws-sam/publish-public.yaml"
 
 [public_publish.global.parameters]
 beta_features = true
+profile = "${PUBLIC_PROFILE}"
 region = "us-east-1"
