@@ -92,11 +92,20 @@ This design exists because `aws/spans` usually arrives from CloudWatch Logs in v
 }
 ```
 
-2. Copy the example SAM config:
+2. Generate a local `samconfig.toml` from the checked-in template.
 
 ```bash
-cp samconfig.example.toml samconfig.toml
+export SIGNALS_RELAY_MONITORING_PROFILE="monitoring.admin"
+export SIGNALS_RELAY_PUBLIC_PROFILE="public.admin"
+export SIGNALS_RELAY_PUBLIC_SAR_BUCKET="replace-with-public-sar-artifacts-bucket"
+export SIGNALS_RELAY_DEPLOYMENT_ID="replace-me"
+python3.11 ./scripts/init_samconfig.py
 ```
+
+The generator renders `samconfig.toml` from `samconfig.example.toml`. It
+requires Python 3.11+ and also accepts an optional
+`SIGNALS_RELAY_COLLECTOR_EXTENSION_ARN` override when you do not want to use the
+default collector layer example.
 
 3. Build and deploy:
 
@@ -157,7 +166,7 @@ Collector mode uses the checked-in [`config/collector.yaml`](./config/collector.
   - The relay sets `OTEL_EXPORTER_OTLP_COMPRESSION_LEVEL=6`.
   - Collector mode also sets `compression: gzip` on the collector's outbound OTLP exporter.
 
-The example SAM config uses:
+The generated SAM config uses:
 
 - the default deploy profile for direct mode
 - the `collector` deploy profile for collector mode

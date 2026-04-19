@@ -89,10 +89,17 @@ The `package` step writes a packaged template to `.aws-sam/publish-public.yaml`.
 For local installs from source:
 
 ```bash
-cp samconfig.example.toml samconfig.toml
+export SIGNALS_RELAY_MONITORING_PROFILE="monitoring.admin"
+export SIGNALS_RELAY_PUBLIC_PROFILE="public.admin"
+export SIGNALS_RELAY_PUBLIC_SAR_BUCKET="replace-with-public-sar-artifacts-bucket"
+export SIGNALS_RELAY_DEPLOYMENT_ID="replace-me"
+python3.11 ./scripts/init_samconfig.py
 sam build --template-file template.yaml
 sam deploy --stack-name signals-relay
 ```
+
+The generator renders the ignored local `samconfig.toml` from the checked-in
+`samconfig.example.toml` template and requires Python 3.11+.
 
 For collector mode:
 
