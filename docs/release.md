@@ -17,9 +17,10 @@ Releases are driven from the coordinated repo version and published from a match
 
 1. Run [`scripts/set-version.sh`](../scripts/set-version.sh) with the target version.
 2. Run the `release` workflow manually from the branch you want to release.
-3. The workflow derives the tag as `v<version>`, fails if that tag already exists, and publishes the release from the checked-out commit first.
-4. Only after the publish job succeeds does the workflow create and push the matching Git tag.
-5. If you push a matching tag outside the workflow, the same publish job still runs on the `push.tags` trigger.
+3. Choose `share_scope=account` to keep the SAR app private to the publisher account, or `share_scope=organization` to add a private org-wide share after publish.
+4. The workflow derives the tag as `v<version>`, fails if that tag already exists, and publishes the release from the checked-out commit first.
+5. Only after the publish job succeeds does the workflow create and push the matching Git tag.
+6. If you push a matching tag outside the workflow, the same publish job still runs on the `push.tags` trigger with account-only sharing.
 
 Examples:
 
@@ -36,18 +37,22 @@ The workflow expects:
 
 - `AWS_ROLE_TO_ASSUME` for GitHub Actions OIDC authentication
 - `SAR_ARTIFACT_BUCKET` for packaged template and asset uploads during release
-- optional `SAR_SHARE_ORG_ID` GitHub Actions variable to apply a private org-wide SAR share after publish
 
 In the current `dev7a` setup, those values come from the public-account infrastructure stack in the companion `oidc-gha-provider` project:
 
 - `SignalsRelayPublisherRoleArn` -> `AWS_ROLE_TO_ASSUME`
 - `SignalsRelaySarArtifactsBucketName` -> `SAR_ARTIFACT_BUCKET`
 
-If `SAR_SHARE_ORG_ID` is set, the publish workflow follows `sam publish` with
-`serverlessrepo put-application-policy` so the app stays private but becomes
-deployable from other accounts in the same AWS Organization. The org ID stays
-in GitHub Actions configuration instead of tracked files. Leave the variable
-unset to keep the application private to the publisher account.
+When you run the `release` workflow manually, GitHub presents a `share_scope`
+choice with `account` and `organization` values. `account` keeps the published
+SAR app private to the publisher account. `organization` follows `sam publish`
+with `serverlessrepo put-application-policy`, discovers the current AWS
+Organization ID at runtime, and shares the app privately across that
+organization. For that org-wide path to work, the role assumed via
+`AWS_ROLE_TO_ASSUME` must allow `organizations:DescribeOrganization`; in the
+current `dev7a` setup, that permission is granted on the publisher role managed
+by the companion `oidc-gha-provider` infrastructure. The tag-push release path
+keeps the safe default and publishes to the account only.
 
 ## Manual SAR Publish
 
@@ -146,7 +151,8 @@ Application Repository once the publication account and sharing model are ready.
 - `template.yaml` includes `AWS::ServerlessRepo::Application` metadata.
 - `sam publish` uses the packaged template emitted by the release workflow.
 - The release workflow keeps the semantic version explicit so SAR versions and Git tags stay aligned.
-- When `SAR_SHARE_ORG_ID` is configured, the release workflow adds a private
+- When `share_scope=organization` is selected for a manual release, the
+  workflow discovers the current AWS Organization ID and adds a private
   org-wide share after publish instead of making the app public.
 
 This document does not claim that the application is already public in SAR. It
