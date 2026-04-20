@@ -83,10 +83,12 @@ jobs:
 
       - name: Validate sharing scope
         shell: bash
+        env:
+          SHARE_SCOPE: ${{ inputs.share_scope }}
         run: |
           set -euo pipefail
 
-          case "${{ inputs.share_scope }}" in
+          case "$SHARE_SCOPE" in
             account|organization) ;;
             *)
               echo "::error::share_scope must be either 'account' or 'organization'."
@@ -389,8 +391,14 @@ jobs:
             --output text >"$org_stdout" 2>"$org_stderr"; then
             normalized_org_id="$(cat "$org_stdout")"
           else
-            echo "::error::Failed to discover the AWS Organization ID for org-wide SAR sharing."
-            cat "$org_stderr" >&2
+            org_error="$(cat "$org_stderr")"
+            if [[ "$org_error" == *AccessDenied* || "$org_error" == *UnauthorizedOperation* || "$org_error" == *"not authorized"* ]]; then
+              echo "::error::Failed to discover the AWS Organization ID for org-wide SAR sharing because the assumed release role is missing the required IAM permission organizations:DescribeOrganization."
+              echo "::error::Ensure the publisher/release role policy allows organizations:DescribeOrganization before using share_scope=organization."
+            else
+              echo "::error::Failed to discover the AWS Organization ID for org-wide SAR sharing."
+            fi
+            printf '%s\n' "$org_error" >&2
             exit 1
           fi
 
