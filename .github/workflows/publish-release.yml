@@ -358,12 +358,25 @@ jobs:
           account_id="$(aws sts get-caller-identity --query Account --output text)"
           application_arn="arn:aws:serverlessrepo:${AWS_REGION}:${account_id}:applications/${app_name}"
 
-          existing_policy_json="$(
-            aws serverlessrepo get-application-policy \
-              --region "$AWS_REGION" \
-              --application-id "$application_arn" \
-              --output json 2>/dev/null || printf '%s' '{"Statements":[]}'
-          )"
+          policy_stdout="$(mktemp)"
+          policy_stderr="$(mktemp)"
+          trap 'rm -f "$policy_stdout" "$policy_stderr"' EXIT
+
+          if aws serverlessrepo get-application-policy \
+            --region "$AWS_REGION" \
+            --application-id "$application_arn" \
+            --output json >"$policy_stdout" 2>"$policy_stderr"; then
+            existing_policy_json="$(cat "$policy_stdout")"
+          else
+            policy_error="$(cat "$policy_stderr")"
+            if grep -Eq 'ApplicationPolicy.*NotFound|ResourceNotFound|NotFoundException' <<<"$policy_error"; then
+              existing_policy_json='{"Statements":[]}'
+            else
+              echo "::error::Failed to get existing application policy for $application_arn"
+              cat "$policy_stderr" >&2
+              exit 1
+            fi
+          fi
 
           merged_statements="$(
             jq -cn \
