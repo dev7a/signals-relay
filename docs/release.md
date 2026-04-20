@@ -102,7 +102,8 @@ Local source installs assume Python `3.11` or later, Rust `1.91` or later,
 `cargo-lambda` on your `PATH`, `uv`, and AWS SAM CLI.
 
 The generator renders the ignored local `samconfig.toml` from the checked-in
-`samconfig.example.toml` template via inline PEP 723 script metadata. Set
+`samconfig.example.toml` template. The script includes inline PEP 723 metadata,
+so `uv run` enforces the Python `3.11`+ requirement. Set
 `SIGNALS_RELAY_PUBLIC_PROFILE` and `SIGNALS_RELAY_PUBLIC_SAR_BUCKET` before
 running it, because the generator writes the `public_publish` config too and
 fails instead of emitting placeholder publication values. Set
