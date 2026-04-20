@@ -127,6 +127,7 @@ jobs:
     with:
       checkout_ref: ${{ github.sha }}
       release_tag: ${{ needs.prepare_release.outputs.release_tag }}
+      sar_share_org_id: ${{ vars.SAR_SHARE_ORG_ID }}
     secrets: inherit
 
   tag_after_dispatch_publish:
@@ -175,4 +176,5 @@ jobs:
     with:
       checkout_ref: refs/tags/${{ github.ref_name }}
       release_tag: ${{ github.ref_name }}
+      sar_share_org_id: ${{ vars.SAR_SHARE_ORG_ID }}
     secrets: inherit

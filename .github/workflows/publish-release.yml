@@ -11,6 +11,11 @@ on:
         description: Release version tag name to validate and publish, for example v0.1.0 or v0.1.0-beta.1
         required: true
         type: string
+      sar_share_org_id:
+        description: Optional AWS Organization ID to share the published SAR app with privately after publish
+        required: false
+        default: ""
+        type: string
 
 env:
   AWS_REGION: us-east-1
@@ -331,3 +336,95 @@ jobs:
             --template "$RELEASE_ROOT/$VERSION/app/packaged.yaml" \
             --region "$AWS_REGION" \
             --semantic-version "$VERSION"
+
+      - name: Share the published application with the AWS Organization
+        if: ${{ inputs.sar_share_org_id != '' }}
+        shell: bash
+        env:
+          SAR_SHARE_ORG_ID: ${{ inputs.sar_share_org_id }}
+          SAM_TEMPLATE: ${{ steps.sam_template.outputs.path }}
+        run: |
+          set -euo pipefail
+
+          app_name_raw="$(
+            sed -nE '/AWS::ServerlessRepo::Application:/,/^[^[:space:]]/ s/^[[:space:]]*Name:[[:space:]]*(.+)$/\1/p' "$SAM_TEMPLATE" | head -n1
+          )"
+          app_name="$(scripts/normalize-yaml-scalar.sh "$app_name_raw")"
+          if [[ -z "$app_name" ]]; then
+            echo "::error::SAM template $SAM_TEMPLATE is missing Metadata.AWS::ServerlessRepo::Application.Name"
+            exit 1
+          fi
+
+          account_id="$(aws sts get-caller-identity --query Account --output text)"
+          application_arn="arn:aws:serverlessrepo:${AWS_REGION}:${account_id}:applications/${app_name}"
+
+          existing_policy_json="$(
+            aws serverlessrepo get-application-policy \
+              --region "$AWS_REGION" \
+              --application-id "$application_arn" \
+              --output json 2>/dev/null || printf '%s' '{"Statements":[]}'
+          )"
+
+          merged_statements="$(
+            jq -cn \
+              --arg org_id "$SAR_SHARE_ORG_ID" \
+              --argjson existing "$existing_policy_json" '
+                (($existing.Statements // [])
+                  | map(select(.StatementId != "share-org")))
+                + [
+                  {
+                    StatementId: "share-org",
+                    Actions: ["Deploy", "UnshareApplication"],
+                    PrincipalOrgIDs: [$org_id],
+                    Principals: ["*"]
+                  }
+                ]
+              '
+          )"
+
+          applied="false"
+          for attempt in 1 2 3 4 5; do
+            if aws serverlessrepo put-application-policy \
+              --region "$AWS_REGION" \
+              --application-id "$application_arn" \
+              --statements "$merged_statements" \
+              >/dev/null; then
+              applied="true"
+              break
+            fi
+
+            sleep 5
+          done
+
+          if [[ "$applied" != "true" ]]; then
+            echo "::error::Failed to apply the org-wide SAR sharing policy after publish."
+            exit 1
+          fi
+
+          verified="false"
+          for attempt in 1 2 3 4 5; do
+            if policy_json="$(aws serverlessrepo get-application-policy \
+                --region "$AWS_REGION" \
+                --application-id "$application_arn" \
+                --output json 2>/dev/null)"; then
+              if jq -e --arg org_id "$SAR_SHARE_ORG_ID" '
+                any(.Statements[]?;
+                  .StatementId == "share-org"
+                  and ((.Actions // []) | index("Deploy"))
+                  and ((.Actions // []) | index("UnshareApplication"))
+                  and ((.Principals // []) | index("*"))
+                  and ((.PrincipalOrgIDs // []) | index($org_id))
+                )
+              ' <<<"$policy_json" >/dev/null; then
+                verified="true"
+                break
+              fi
+            fi
+
+            sleep 5
+          done
+
+          if [[ "$verified" != "true" ]]; then
+            echo "::error::Failed to verify the org-wide SAR sharing policy after publish."
+            exit 1
+          fi

@@ -36,11 +36,18 @@ The workflow expects:
 
 - `AWS_ROLE_TO_ASSUME` for GitHub Actions OIDC authentication
 - `SAR_ARTIFACT_BUCKET` for packaged template and asset uploads during release
+- optional `SAR_SHARE_ORG_ID` GitHub Actions variable to apply a private org-wide SAR share after publish
 
 In the current `dev7a` setup, those values come from the public-account infrastructure stack in the companion `oidc-gha-provider` project:
 
 - `SignalsRelayPublisherRoleArn` -> `AWS_ROLE_TO_ASSUME`
 - `SignalsRelaySarArtifactsBucketName` -> `SAR_ARTIFACT_BUCKET`
+
+If `SAR_SHARE_ORG_ID` is set, the publish workflow follows `sam publish` with
+`serverlessrepo put-application-policy` so the app stays private but becomes
+deployable from other accounts in the same AWS Organization. The org ID stays
+in GitHub Actions configuration instead of tracked files. Leave the variable
+unset to keep the application private to the publisher account.
 
 ## Manual SAR Publish
 
@@ -133,10 +140,17 @@ The example SAM config intentionally does not mirror the release version in stac
 
 ## SAR Publication Direction
 
-The repository is structured so the app can be published to the AWS Serverless Application Repository once the publication account and sharing model are ready.
+The repository is structured so the app can be published to the AWS Serverless
+Application Repository once the publication account and sharing model are ready.
 
 - `template.yaml` includes `AWS::ServerlessRepo::Application` metadata.
 - `sam publish` uses the packaged template emitted by the release workflow.
 - The release workflow keeps the semantic version explicit so SAR versions and Git tags stay aligned.
+- When `SAR_SHARE_ORG_ID` is configured, the release workflow adds a private
+  org-wide share after publish instead of making the app public.
 
-This document does not claim that the application is already public in SAR. It only describes the publication path the repo is prepared for.
+This document does not claim that the application is already public in SAR. It
+describes a publication path that can remain publisher-only or be shared
+privately across the AWS Organization. Validate the org-shared install path
+from another member account in `us-east-1` before introducing any future public
+sharing step.
