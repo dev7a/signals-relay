@@ -74,6 +74,7 @@ This design exists because `aws/spans` usually arrives from CloudWatch Logs in v
 
 - Rust `1.91` or later
 - `cargo-lambda` on your `PATH` for the `rust-cargolambda` SAM build
+- Python `3.11` or later
 - `uv` for running `./scripts/init_samconfig.py` from its inline script metadata
 - AWS SAM CLI
 - AWS credentials configured for the target account and region

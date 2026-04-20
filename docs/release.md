@@ -98,8 +98,8 @@ sam build --template-file template.yaml
 sam deploy --stack-name signals-relay
 ```
 
-Local source installs assume Rust `1.91` or later, `cargo-lambda` on your
-`PATH`, `uv`, and AWS SAM CLI.
+Local source installs assume Python `3.11` or later, Rust `1.91` or later,
+`cargo-lambda` on your `PATH`, `uv`, and AWS SAM CLI.
 
 The generator renders the ignored local `samconfig.toml` from the checked-in
 `samconfig.example.toml` template via inline PEP 723 script metadata. Set
