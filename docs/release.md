@@ -48,8 +48,11 @@ choice with `account` and `organization` values. `account` keeps the published
 SAR app private to the publisher account. `organization` follows `sam publish`
 with `serverlessrepo put-application-policy`, discovers the current AWS
 Organization ID at runtime, and shares the app privately across that
-organization. The tag-push release path keeps the safe default and publishes to
-the account only.
+organization. For that org-wide path to work, the role assumed via
+`AWS_ROLE_TO_ASSUME` must allow `organizations:DescribeOrganization`; in the
+current `dev7a` setup, that permission is granted on the publisher role managed
+by the companion `oidc-gha-provider` infrastructure. The tag-push release path
+keeps the safe default and publishes to the account only.
 
 ## Manual SAR Publish
 
