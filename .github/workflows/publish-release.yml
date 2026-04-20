@@ -355,12 +355,20 @@ jobs:
             exit 1
           fi
 
+          normalized_org_id="${SAR_SHARE_ORG_ID#"${SAR_SHARE_ORG_ID%%[![:space:]]*}"}"
+          normalized_org_id="${normalized_org_id%"${normalized_org_id##*[![:space:]]}"}"
+          if [[ ! "$normalized_org_id" =~ ^o-[a-z0-9]{10,32}$ ]]; then
+            echo "::error::SAR_SHARE_ORG_ID must be a valid AWS Organization ID like o-xxxxxxxxxx."
+            exit 1
+          fi
+
           account_id="$(aws sts get-caller-identity --query Account --output text)"
           application_arn="arn:aws:serverlessrepo:${AWS_REGION}:${account_id}:applications/${app_name}"
 
           policy_stdout="$(mktemp)"
           policy_stderr="$(mktemp)"
-          trap 'rm -f "$policy_stdout" "$policy_stderr"' EXIT
+          verify_stderr="$(mktemp)"
+          trap 'rm -f "$policy_stdout" "$policy_stderr" "$verify_stderr"' EXIT
 
           if aws serverlessrepo get-application-policy \
             --region "$AWS_REGION" \
@@ -380,7 +388,7 @@ jobs:
 
           merged_statements="$(
             jq -cn \
-              --arg org_id "$SAR_SHARE_ORG_ID" \
+              --arg org_id "$normalized_org_id" \
               --argjson existing "$existing_policy_json" '
                 (($existing.Statements // [])
                   | map(select(.StatementId != "share-org")))
@@ -415,12 +423,13 @@ jobs:
           fi
 
           verified="false"
+          last_verify_error=""
           for attempt in 1 2 3 4 5; do
             if policy_json="$(aws serverlessrepo get-application-policy \
                 --region "$AWS_REGION" \
                 --application-id "$application_arn" \
-                --output json 2>/dev/null)"; then
-              if jq -e --arg org_id "$SAR_SHARE_ORG_ID" '
+                --output json 2>"$verify_stderr")"; then
+              if jq -e --arg org_id "$normalized_org_id" '
                 any(.Statements[]?;
                   .StatementId == "share-org"
                   and ((.Actions // []) | index("Deploy"))
@@ -432,6 +441,8 @@ jobs:
                 verified="true"
                 break
               fi
+            else
+              last_verify_error="$(cat "$verify_stderr")"
             fi
 
             sleep 5
@@ -439,5 +450,8 @@ jobs:
 
           if [[ "$verified" != "true" ]]; then
             echo "::error::Failed to verify the org-wide SAR sharing policy after publish."
+            if [[ -n "$last_verify_error" ]]; then
+              printf '%s\n' "$last_verify_error" >&2
+            fi
             exit 1
           fi
