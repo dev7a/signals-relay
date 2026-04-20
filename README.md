@@ -74,7 +74,7 @@ This design exists because `aws/spans` usually arrives from CloudWatch Logs in v
 
 - Rust `1.91` or later
 - `cargo-lambda` on your `PATH` for the `rust-cargolambda` SAM build
-- Python `3.11` or later for `./scripts/init_samconfig.py`
+- `uv` for running `./scripts/init_samconfig.py` from its inline script metadata
 - AWS SAM CLI
 - AWS credentials configured for the target account and region
 
@@ -101,12 +101,11 @@ export SIGNALS_RELAY_MONITORING_PROFILE="monitoring.admin"
 export SIGNALS_RELAY_DEPLOYMENT_ID="replace-me"
 export SIGNALS_RELAY_PUBLIC_PROFILE="public.admin"
 export SIGNALS_RELAY_PUBLIC_SAR_BUCKET="your-public-sar-artifacts-bucket"
-export SIGNALS_RELAY_REGION="us-east-1"
-python3 ./scripts/init_samconfig.py
+uv run ./scripts/init_samconfig.py
 ```
 
 The generator renders `samconfig.toml` from `samconfig.example.toml`. It
-requires Python 3.11+ and requires
+uses inline PEP 723 script metadata and requires
 `SIGNALS_RELAY_PUBLIC_PROFILE` plus
 `SIGNALS_RELAY_PUBLIC_SAR_BUCKET` so it can render a complete, ready-to-use
 local config instead of writing placeholder publication values. It also accepts
@@ -200,6 +199,7 @@ The generated SAM config uses:
 cargo test --workspace --locked
 sam validate --template-file template.yaml
 sam build --template-file template.yaml
+uv run ./scripts/init_samconfig.py --help
 ```
 
 ## Further Reading

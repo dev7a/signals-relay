@@ -93,17 +93,16 @@ export SIGNALS_RELAY_MONITORING_PROFILE="monitoring.admin"
 export SIGNALS_RELAY_DEPLOYMENT_ID="replace-me"
 export SIGNALS_RELAY_PUBLIC_PROFILE="public.admin"
 export SIGNALS_RELAY_PUBLIC_SAR_BUCKET="your-public-sar-artifacts-bucket"
-export SIGNALS_RELAY_REGION="us-east-1"
-python3 ./scripts/init_samconfig.py
+uv run ./scripts/init_samconfig.py
 sam build --template-file template.yaml
 sam deploy --stack-name signals-relay
 ```
 
 Local source installs assume Rust `1.91` or later, `cargo-lambda` on your
-`PATH`, Python `3.11` or later, and AWS SAM CLI.
+`PATH`, `uv`, and AWS SAM CLI.
 
 The generator renders the ignored local `samconfig.toml` from the checked-in
-`samconfig.example.toml` template and requires Python 3.11+. Set
+`samconfig.example.toml` template via inline PEP 723 script metadata. Set
 `SIGNALS_RELAY_PUBLIC_PROFILE` and `SIGNALS_RELAY_PUBLIC_SAR_BUCKET` before
 running it, because the generator writes the `public_publish` config too and
 fails instead of emitting placeholder publication values. Set
