@@ -1,16 +1,28 @@
 # Documentation
 
-Start with the root [README](../README.md) if you want to evaluate or deploy this repository.
+Choose the path that matches what you are trying to do.
 
-## Start Here
+## Try The Application
 
-- [Release and packaging](./release.md): coordinated packaging, publication, and consumer install/upgrade flow for the core crate artifact and the deployable SAM application
-- [Current architecture](./current-architecture.md): the implemented pipeline, export modes, failure handling, and tradeoffs
-- [Why the current architecture was chosen](./cloudwatch-lambda-partitioner-kinesis-tumbling-window.md): rationale for the Kinesis repartitioning and tumbling-window design
+- [Root README](../README.md): start here if you want to try the shared SAR
+  application or decide whether you need a source checkout
+- [Release and packaging](./release.md#install-from-sar): SAR install path for
+  users who only want to deploy the application
 
-## Alternatives Considered
+## Deploy Or Modify From Source
 
-These documents are retained for tradeoff history and comparison. They are not the recommended deployment path for this repository.
+- [Root README](../README.md#deploy-from-source): source-based deploy path and
+  operator-oriented configuration notes
+- [Current architecture](./current-architecture.md): implemented pipeline,
+  export modes, failure handling, and tradeoffs
 
+## Publish A Release
+
+- [Release and packaging](./release.md): coordinated release flow, manual SAR
+  publish flow, and upgrade guidance
+
+## Design Background
+
+- [Why the current architecture was chosen](./cloudwatch-lambda-partitioner-kinesis-tumbling-window.md)
 - [CloudWatch Logs to Kinesis to Lambda relay](./cloudwatch-kinesis-lambda-relay.md)
 - [Long poller with SQS for delayed work](./long-poller-sqs-delayed-task.md)
