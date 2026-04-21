@@ -1,33 +1,77 @@
 # Signals Relay
 
-Standalone AWS serverless pipeline that converts CloudWatch Application Signals `aws/spans` log records into valid OTLP trace payloads and exports them to an OTLP/HTTP backend.
+Standalone AWS serverless pipeline that converts CloudWatch Application Signals
+`aws/spans` log records into valid OTLP trace payloads and exports them to an
+OTLP/HTTP backend.
 
 > [!NOTE]
-> This repository is experimental and is not recommended for production use without additional hardening.
+> This repository is experimental and is not recommended for production use
+> without additional hardening.
+
+## Start Here
+
+- Try the shared SAR application if it has been shared with your AWS account or
+  AWS Organization. This is the easiest evaluation path and does not require a
+  repository checkout.
+- Deploy from source if you want to inspect or modify the implementation before
+  you deploy it.
+- Read [docs/current-architecture.md](./docs/current-architecture.md) if you
+  want to understand the implemented pipeline and tradeoffs before you install
+  anything.
+- Read [docs/release.md](./docs/release.md) for the full install, packaging, and
+  publisher workflows.
+
+## Try The Shared SAR Application
+
+If the application has been shared with your AWS account or AWS Organization in
+AWS Serverless Application Repository, you can try it without cloning this
+repository. The current private/shared SAR path is pinned to `us-east-1`.
+
+1. Create the shared Secrets Manager secret at
+   `signals-relay/secrets/collector`:
+
+   ```json
+   {
+     "endpoint": "https://example.com",
+     "headers": {
+       "authorization": "Bearer ...",
+       "x-api-key": "..."
+     }
+   }
+   ```
+
+2. Open the `signals-relay` application in AWS Serverless Application
+   Repository in `us-east-1` and deploy it as a CloudFormation stack.
+3. Set the CloudFormation parameters you need:
+   - `ExportMode=direct` is the default
+   - `CollectorExtensionArn` is required only when `ExportMode=collector`
+   - `SpanLogGroupName` defaults to `aws/spans`
+   - `DeploymentId` is optional
+   - `VpcId` and `SubnetIds` are optional
+
+If you choose `collector` mode, use an upstream OpenTelemetry Lambda collector
+layer ARN for your Region and architecture. If you just want to evaluate the
+application, you do not need Rust, `cargo-lambda`, `uv`, or a local
+`samconfig.toml` for this path.
 
 ## Deliverables
 
-This repository ships two deliverables from the same repo under one coordinated release version:
+This repository ships two deliverables under one coordinated release version:
 
-- the reusable core crate, and
-- the deployable serverless SAM application.
-
-- Coordinated release workflow: `.github/workflows/release.yml` packages the `signals-relay-core` crate artifact and publishes the SAM application from the same `vX.Y.Z` tag
-- Version bump helper: `./scripts/set-version.sh <version>` keeps `Cargo.toml`, `template.yaml`, and `Cargo.lock` aligned for release prep and requires `python3` plus Cargo
-- Deployable serverless application: `template.yaml` and `samconfig.example.toml`
-- Release and consumer guidance: [docs/release.md](./docs/release.md)
-- Architecture overview: [docs/current-architecture.md](./docs/current-architecture.md)
+- the reusable `signals-relay-core` crate
+- the deployable SAM application
 
 ## Telemetry Pipeline
 
-This repository deploys:
+The serverless application deploys:
 
 1. A CloudWatch Logs subscription on `aws/spans`
-2. A partitioner Lambda that republishes each source record into Kinesis with `partitionKey = traceId`
+2. A partitioner Lambda that republishes each source record into Kinesis with
+   `partitionKey = traceId`
 3. A Kinesis stream that buffers and re-groups those records
 4. A relay Lambda that consumes the stream with a 60-second tumbling window
 5. OTLP conversion and export, either:
-   - directly from the relay Lambda, or
+   - directly from the relay Lambda
    - through the upstream OpenTelemetry Lambda collector extension
 
 <div align="center">
@@ -68,127 +112,160 @@ architecture-beta
 
 </details>
 
-This design exists because `aws/spans` usually arrives from CloudWatch Logs in very small batches. Repartitioning through Kinesis gives the relay direct control over grouping and batching, and the tumbling window gives managed-link decorators time to merge back into their target spans before OTLP emission.
+This design exists because `aws/spans` usually arrives from CloudWatch Logs in
+very small batches. Repartitioning through Kinesis gives the relay direct
+control over grouping and batching, and the tumbling window gives managed-link
+decorators time to merge back into their target spans before OTLP emission.
 
-## Prerequisites
+## Deploy From Source
+
+Use this path when you want to inspect or modify the repository before
+deploying it. If you only want to try the application, prefer the shared SAR
+path above.
+
+### Source Prerequisites
 
 - Rust `1.91` or later
+- `cargo-lambda` on your `PATH` for the `rust-cargolambda` SAM build
+- Python `3.11` or later
+- `uv` for running `./scripts/init_samconfig.py` from its inline script
+  metadata
 - AWS SAM CLI
-- AWS credentials configured for the target account and region
+- AWS credentials configured for the target account and Region
 
-## Direct Mode Quickstart
+### Direct Mode
 
 `direct` is the default deployment mode.
 
-1. Create the shared Secrets Manager secret for the OTLP target at `signals-relay/secrets/collector`:
+1. Create the shared Secrets Manager secret at
+   `signals-relay/secrets/collector`:
 
-```json
-{
-  "endpoint": "https://example.com",
-  "headers": {
-    "authorization": "Bearer ...",
-    "x-api-key": "..."
-  }
-}
-```
+   ```json
+   {
+     "endpoint": "https://example.com",
+     "headers": {
+       "authorization": "Bearer ...",
+       "x-api-key": "..."
+     }
+   }
+   ```
 
-2. Generate a local `samconfig.toml` from the checked-in template.
+2. Generate a local `samconfig.toml` from the checked-in template:
 
-```bash
-export SIGNALS_RELAY_MONITORING_PROFILE="monitoring.admin"
-export SIGNALS_RELAY_DEPLOYMENT_ID="replace-me"
-python3.11 ./scripts/init_samconfig.py
-```
+   ```bash
+   export SIGNALS_RELAY_MONITORING_PROFILE="your-deploy-profile"
+   export SIGNALS_RELAY_DEPLOYMENT_ID="replace-me"
+   export SIGNALS_RELAY_PUBLIC_PROFILE="your-publish-profile"
+   export SIGNALS_RELAY_PUBLIC_SAR_BUCKET="your-sar-artifacts-bucket"
+   uv run ./scripts/init_samconfig.py
+   ```
 
-The generator renders `samconfig.toml` from `samconfig.example.toml`. It
-requires Python 3.11+ and also accepts an optional
-`SIGNALS_RELAY_PUBLIC_PROFILE` /
-`SIGNALS_RELAY_PUBLIC_SAR_BUCKET` pair when you want a ready-to-use
-`public_publish` config, plus an optional
+The generator renders `samconfig.toml` from `samconfig.example.toml`. It uses
+inline PEP 723 script metadata and requires `SIGNALS_RELAY_PUBLIC_PROFILE` plus
+`SIGNALS_RELAY_PUBLIC_SAR_BUCKET` so it can render a complete, ready-to-use
+local config instead of writing placeholder publication values. It also accepts
+an optional `SIGNALS_RELAY_REGION` override for the local `default` and
+`collector` deploy profiles. It defaults those local deploys to `us-east-1`.
+The checked-in `public_publish` config remains pinned to `us-east-1` for the
+current SAR publication path. The generator also accepts an optional
 `SIGNALS_RELAY_COLLECTOR_EXTENSION_ARN` override when you do not want to use the
 default collector layer example.
 
 3. Build and deploy:
 
-```bash
-sam build --template-file template.yaml
-sam deploy --stack-name signals-relay
-```
+   ```bash
+   sam build --template-file template.yaml
+   sam deploy --stack-name signals-relay
+   ```
 
-## Collector Mode Quickstart
+### Collector Mode
 
-Use `collector` mode when you want the relay Lambda to send OTLP to the upstream OpenTelemetry Lambda collector extension at `http://localhost:4318`.
+Use `collector` mode when you want the relay Lambda to send OTLP to the
+upstream OpenTelemetry Lambda collector extension at `http://localhost:4318`.
 
-1. Create or update the shared `signals-relay/secrets/collector` secret in the same account and region:
-
-```json
-{
-  "endpoint": "https://example.com",
-  "headers": {
-    "authorization": "Bearer ...",
-    "x-api-key": "..."
-  }
-}
-```
-
+1. Create or update the shared `signals-relay/secrets/collector` secret in the
+   same account and Region.
 2. Set `ExportMode=collector` and `CollectorExtensionArn`.
-
 3. Build and deploy with the collector SAM profile:
 
-```bash
-sam build --template-file template.yaml
-sam deploy --config-env collector --stack-name signals-relay
-```
+   ```bash
+   sam build --template-file template.yaml
+   sam deploy --config-env collector --stack-name signals-relay
+   ```
 
-Collector mode requires a layer ARN published by the upstream [open-telemetry/opentelemetry-lambda releases](https://github.com/open-telemetry/opentelemetry-lambda/releases). The example config currently shows the `us-east-1` `arm64` `0_21_0` ARN as an example value, but you should verify the latest release for your region and architecture before deploying.
+Collector mode requires a layer ARN published by the upstream
+[open-telemetry/opentelemetry-lambda releases](https://github.com/open-telemetry/opentelemetry-lambda/releases).
+The example config currently shows the `us-east-1` `arm64` `0_21_0` ARN as an
+example value, but you should verify the latest release for your Region and
+architecture before deploying.
 
-Collector mode uses the checked-in [`config/collector.yaml`](./config/collector.yaml) layer at `/opt/collector.yaml`. That config resolves the shared `signals-relay/secrets/collector` secret via `${secretsmanager:signals-relay/secrets/collector#endpoint}` and `${secretsmanager:signals-relay/secrets/collector#headers}`.
+Collector mode uses the checked-in [`config/collector.yaml`](./config/collector.yaml)
+layer at `/opt/collector.yaml`. That config resolves the shared
+`signals-relay/secrets/collector` secret via
+`${secretsmanager:signals-relay/secrets/collector#endpoint}` and
+`${secretsmanager:signals-relay/secrets/collector#headers}`.
 
 ## Configuration Reference
 
 - `ExportMode`
-  - `direct` is the default and uses the shared OTLP secret.
-  - `collector` requires `CollectorExtensionArn`.
+  - `direct` is the default and uses the shared OTLP secret
+  - `collector` requires `CollectorExtensionArn`
 - Shared OTLP secret
-  - Both export modes use `signals-relay/secrets/collector`.
-  - The secret uses the `{endpoint, headers}` JSON shape shown above.
-  - In `direct` mode, the relay reads it once during Lambda startup and keeps it in memory for the lifetime of that execution environment.
-  - In `collector` mode, the collector extension resolves the same secret from `/opt/collector.yaml`.
+  - both export modes use `signals-relay/secrets/collector`
+  - the secret uses the `{endpoint, headers}` JSON shape shown above
+  - in `direct` mode, the relay reads it once during Lambda startup and keeps
+    it in memory for the lifetime of that execution environment
+  - in `collector` mode, the collector extension resolves the same secret from
+    `/opt/collector.yaml`
 - `DeploymentId`
-  - Optional no-op deployment marker.
-  - Change it when you want CloudFormation to force a fresh rollout after rotating secrets.
+  - optional no-op deployment marker
+  - change it when you want CloudFormation to force a fresh rollout after
+    rotating secrets
 - `CollectorExtensionArn`
-  - Required only when `ExportMode=collector`.
-  - Must point to an upstream OpenTelemetry Lambda collector layer ARN.
+  - required only when `ExportMode=collector`
+  - must point to an upstream OpenTelemetry Lambda collector layer ARN
 - `VpcId` and `SubnetIds`
-  - Optional VPC settings for the relay Lambda only. The partitioner stays outside the VPC.
+  - optional VPC settings for the relay Lambda only
+  - the partitioner stays outside the VPC
 - Compression defaults
-  - The relay sets `OTEL_EXPORTER_OTLP_TRACES_COMPRESSION=gzip`.
-  - The relay sets `OTEL_EXPORTER_OTLP_COMPRESSION_LEVEL=6`.
-  - Collector mode also sets `compression: gzip` on the collector's outbound OTLP exporter.
+  - the relay sets `OTEL_EXPORTER_OTLP_TRACES_COMPRESSION=gzip`
+  - the relay sets `OTEL_EXPORTER_OTLP_COMPRESSION_LEVEL=6`
+  - collector mode also sets `compression: gzip` on the collector's outbound
+    OTLP exporter
 
 The generated SAM config uses:
 
 - the default deploy profile for direct mode
 - the `collector` deploy profile for collector mode
+- `SIGNALS_RELAY_REGION` if you set it, otherwise `us-east-1`
+- `us-east-1` for the `public_publish` profile
 
 ## Operational Caveats
 
-- The relay emits OTLP only on the final invoke of a 60-second Kinesis tumbling window.
-- Managed-link decorator reconciliation is bounded by that window. Late decorators are dropped and counted.
-- The partitioner retries retryable `PutRecords` failures on the failed subset only.
-- Non-retryable or retry-exhausted publish failures go to the publish-failure SQS queue with replay-complete payloads.
-- Unexpected async partitioner invocation failures go to a separate invocation-failure SQS queue.
-- Replay of publish-failure messages after the original window closes may miss same-window managed-link reconciliation.
-- Large OTLP batches can still lead to multi-second relay invocations if the downstream OTLP backend is slow.
-- Collector mode adds local extension overhead but can still be useful when you want collector-managed export behavior or self-telemetry.
+- The relay emits OTLP only on the final invoke of a 60-second Kinesis tumbling
+  window.
+- Managed-link decorator reconciliation is bounded by that window. Late
+  decorators are dropped and counted.
+- The partitioner retries retryable `PutRecords` failures on the failed subset
+  only.
+- Non-retryable or retry-exhausted publish failures go to the
+  publish-failure SQS queue with replay-complete payloads.
+- Unexpected async partitioner invocation failures go to a separate
+  invocation-failure SQS queue.
+- Replay of publish-failure messages after the original window closes may miss
+  same-window managed-link reconciliation.
+- Large OTLP batches can still lead to multi-second relay invocations if the
+  downstream OTLP backend is slow.
+- Collector mode adds local extension overhead but can still be useful when you
+  want collector-managed export behavior or self-telemetry.
 
 ## Build And Validate
 
 ```bash
-cargo test -p signals-relay
+cargo test --workspace --locked
 sam validate --template-file template.yaml
 sam build --template-file template.yaml
+uv run ./scripts/init_samconfig.py --help
 ```
 
 ## Further Reading
