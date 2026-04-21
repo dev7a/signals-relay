@@ -152,13 +152,13 @@ path above.
 
 2. Generate a local `samconfig.toml` from the checked-in template:
 
-```bash
-export SIGNALS_RELAY_MONITORING_PROFILE="your-deploy-profile"
-export SIGNALS_RELAY_DEPLOYMENT_ID="replace-me"
-export SIGNALS_RELAY_PUBLIC_PROFILE="your-publish-profile"
-export SIGNALS_RELAY_PUBLIC_SAR_BUCKET="your-sar-artifacts-bucket"
-uv run ./scripts/init_samconfig.py
-```
+   ```bash
+   export SIGNALS_RELAY_MONITORING_PROFILE="your-deploy-profile"
+   export SIGNALS_RELAY_DEPLOYMENT_ID="replace-me"
+   export SIGNALS_RELAY_PUBLIC_PROFILE="your-publish-profile"
+   export SIGNALS_RELAY_PUBLIC_SAR_BUCKET="your-sar-artifacts-bucket"
+   uv run ./scripts/init_samconfig.py
+   ```
 
 The generator renders `samconfig.toml` from `samconfig.example.toml`. It uses
 inline PEP 723 script metadata and requires `SIGNALS_RELAY_PUBLIC_PROFILE` plus
