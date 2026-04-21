@@ -54,6 +54,43 @@ layer ARN for your Region and architecture. If you just want to evaluate the
 application, you do not need Rust, `cargo-lambda`, `uv`, or a local
 `samconfig.toml` for this path.
 
+If you prefer to deploy the shared app from another IaC stack instead of the
+SAR console, a parent SAM template can embed it directly:
+
+```yaml
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  SignalsRelay:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location:
+        ApplicationId: arn:aws:serverlessrepo:us-east-1:123456789012:applications/signals-relay
+        SemanticVersion: <published-version>
+      Parameters:
+        SpanLogGroupName: aws/spans
+        ExportMode: direct
+
+Outputs:
+  RelayFunctionArn:
+    Value: !GetAtt SignalsRelay.Outputs.ProcessorRelayFunctionArn
+```
+
+Deploy parent SAM templates that embed SAR applications with
+`CAPABILITY_AUTO_EXPAND`; for `signals-relay`, also acknowledge the IAM and
+resource-policy capabilities required by the child app:
+
+```bash
+sam deploy \
+  --stack-name my-signals-relay-wrapper \
+  --capabilities CAPABILITY_IAM CAPABILITY_RESOURCE_POLICY CAPABILITY_AUTO_EXPAND
+```
+
+Replace `ApplicationId` and `SemanticVersion` with the shared values visible in
+AWS Serverless Application Repository. See [docs/release.md](./docs/release.md)
+for fuller SAM, AWS CDK, and Terraform examples.
+
 ## Deliverables
 
 This repository ships two deliverables under one coordinated release version:

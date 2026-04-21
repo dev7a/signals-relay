@@ -52,6 +52,141 @@ If you choose `collector` mode, the relay sends OTLP to
 extension. If you choose `direct` mode, the relay exports to the OTLP endpoint
 described by the shared secret.
 
+### Deploy From Another SAM Template
+
+If you want to compose the shared SAR application into a larger SAM or
+CloudFormation stack, use `AWS::Serverless::Application`:
+
+Replace the placeholder application ARN and version with the values published
+for the release you want to deploy.
+
+```yaml
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  SignalsRelay:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location:
+        ApplicationId: arn:aws:serverlessrepo:us-east-1:123456789012:applications/signals-relay
+        SemanticVersion: <published-version>
+      Parameters:
+        SpanLogGroupName: aws/spans
+        ExportMode: direct
+
+Outputs:
+  RelayFunctionArn:
+    Value: !GetAtt SignalsRelay.Outputs.ProcessorRelayFunctionArn
+```
+
+Add `CollectorExtensionArn` when `ExportMode=collector`. Optional settings such
+as `DeploymentId`, `VpcId`, and `SubnetIds` can be passed the same way. Keep
+the parent stack in `us-east-1` so it can reach the currently shared SAR app.
+
+When you deploy a parent SAM template that embeds `signals-relay`, acknowledge
+the nested application plus the child app's IAM and resource-policy
+requirements:
+
+```bash
+sam deploy \
+  --stack-name my-signals-relay-wrapper \
+  --capabilities CAPABILITY_IAM CAPABILITY_RESOURCE_POLICY CAPABILITY_AUTO_EXPAND
+```
+
+The nested app's sharing rules still apply to the parent stack. If the
+`signals-relay` SAR app has only been shared with your AWS account or AWS
+Organization, the parent stack can only be deployed by an account that already
+has permission to deploy the child application.
+
+### Deploy From AWS CDK
+
+AWS CDK can synthesize the same nested SAR pattern by using the SAM L1
+construct:
+
+```ts
+import * as cdk from 'aws-cdk-lib';
+import * as sam from 'aws-cdk-lib/aws-sam';
+import { Construct } from 'constructs';
+
+export class SignalsRelayStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    this.templateOptions.transforms = ['AWS::Serverless-2016-10-31'];
+
+    const app = new sam.CfnApplication(this, 'SignalsRelay', {
+      location: {
+        applicationId:
+          'arn:aws:serverlessrepo:us-east-1:123456789012:applications/signals-relay',
+        semanticVersion: '<published-version>',
+      },
+      parameters: {
+        SpanLogGroupName: 'aws/spans',
+        ExportMode: 'direct',
+      },
+    });
+
+    new cdk.CfnOutput(this, 'RelayFunctionArn', {
+      value: app.getAtt('Outputs.ProcessorRelayFunctionArn').toString(),
+    });
+  }
+}
+```
+
+If you need `collector` mode, add `CollectorExtensionArn` to the `parameters`
+map. Use the same approach for optional `DeploymentId`, `VpcId`, and
+comma-separated `SubnetIds` values.
+
+### Deploy From Terraform
+
+The Terraform AWS provider has native SAR resources and data sources, so you
+can deploy the application without wrapping your own CloudFormation stack:
+
+Replace the placeholder application ARN and version defaults with the values
+published for the release you want to deploy.
+
+```hcl
+variable "signals_relay_application_id" {
+  type    = string
+  default = "arn:aws:serverlessrepo:us-east-1:123456789012:applications/signals-relay"
+}
+
+variable "signals_relay_version" {
+  type    = string
+  default = "<published-version>"
+}
+
+provider "aws" {
+  region = "us-east-1"
+}
+
+data "aws_serverlessapplicationrepository_application" "signals_relay" {
+  application_id   = var.signals_relay_application_id
+  semantic_version = var.signals_relay_version
+}
+
+resource "aws_serverlessapplicationrepository_cloudformation_stack" "signals_relay" {
+  name             = "signals-relay"
+  application_id   = var.signals_relay_application_id
+  semantic_version = var.signals_relay_version
+  capabilities     = data.aws_serverlessapplicationrepository_application.signals_relay.required_capabilities
+
+  parameters = {
+    SpanLogGroupName = "aws/spans"
+    ExportMode       = "direct"
+  }
+}
+
+output "relay_function_arn" {
+  value = aws_serverlessapplicationrepository_cloudformation_stack.signals_relay.outputs["ProcessorRelayFunctionArn"]
+}
+```
+
+For `collector` mode, add `CollectorExtensionArn` to the `parameters` map. If
+you pass VPC settings, `SubnetIds` should be provided as the comma-separated
+string form expected by the nested stack parameter.
+
 ## Install From Source
 
 Use this path when you want to inspect, modify, or test the repository before
