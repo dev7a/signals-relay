@@ -102,6 +102,15 @@ sam build --template-file template.yaml
 sam deploy --stack-name signals-relay
 ```
 
+These variables describe two logical roles. `SIGNALS_RELAY_MONITORING_PROFILE`
+is the AWS profile for deploying and operating the relay stack. The
+`SIGNALS_RELAY_PUBLIC_PROFILE` and `SIGNALS_RELAY_PUBLIC_SAR_BUCKET` values are
+for the `public_publish` configuration used to package and publish the app to
+SAR. Some teams keep deployment and publication in separate AWS accounts, but
+that split is optional. If the same account handles both duties in your setup,
+use the same AWS profile for both variables and point the SAR artifacts bucket
+at that account.
+
 Local source installs assume Python `3.11` or later, Rust `1.91` or later,
 `cargo-lambda` on your `PATH`, `uv`, and AWS SAM CLI.
 
