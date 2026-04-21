@@ -173,10 +173,10 @@ default collector layer example.
 
 3. Build and deploy:
 
-```bash
-sam build --template-file template.yaml
-sam deploy --stack-name signals-relay
-```
+   ```bash
+   sam build --template-file template.yaml
+   sam deploy --stack-name signals-relay
+   ```
 
 ### Collector Mode
 
