@@ -18,8 +18,10 @@ OTLP/HTTP backend.
 - Read [docs/current-architecture.md](./docs/current-architecture.md) if you
   want to understand the implemented pipeline and tradeoffs before you install
   anything.
-- Read [docs/release.md](./docs/release.md) for the full install, packaging, and
-  publisher workflows.
+- Read [docs/install.md](./docs/install.md) for full install paths, IaC
+  examples, and upgrade guidance.
+- Read [docs/release.md](./docs/release.md) if you maintain this repository and
+  need the release and publication workflow.
 
 ## Try The Shared SAR Application
 
@@ -88,7 +90,7 @@ sam deploy \
 ```
 
 Replace `ApplicationId` and `SemanticVersion` with the shared values visible in
-AWS Serverless Application Repository. See [docs/release.md](./docs/release.md)
+AWS Serverless Application Repository. See [docs/install.md](./docs/install.md)
 for fuller SAM, AWS CDK, and Terraform examples.
 
 ## Deliverables
@@ -308,6 +310,7 @@ uv run ./scripts/init_samconfig.py --help
 ## Further Reading
 
 - [Documentation index](./docs/README.md)
-- [Release and packaging](./docs/release.md)
+- [Install and deployment](./docs/install.md)
+- [Release guide](./docs/release.md)
 - [Current architecture](./docs/current-architecture.md)
 - [Why the current Kinesis and tumbling-window design was chosen](./docs/cloudwatch-lambda-partitioner-kinesis-tumbling-window.md)

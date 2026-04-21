@@ -4,7 +4,7 @@ Core library for the `signals-relay` project.
 
 If you want to try the runnable serverless application, start with the root
 [README](https://github.com/dev7a/signals-relay/blob/main/README.md) or the
-[release and packaging guide](https://github.com/dev7a/signals-relay/blob/main/docs/release.md).
+[install and deployment guide](https://github.com/dev7a/signals-relay/blob/main/docs/install.md).
 This crate is for Rust consumers who want the span reconciliation and OTLP
 encoding logic without the AWS Lambda deployment surface.
 

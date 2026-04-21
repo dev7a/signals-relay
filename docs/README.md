@@ -6,20 +6,20 @@ Choose the path that matches what you are trying to do.
 
 - [Root README](../README.md): start here if you want to try the shared SAR
   application or decide whether you need a source checkout
-- [Release and packaging](./release.md#install-from-sar): SAR install path for
-  users who only want to deploy the application
+- [Install and deployment](./install.md): SAR install path, IaC examples, and
+  source deployment guidance for users who want to run the application
 
 ## Deploy Or Modify From Source
 
-- [Root README](../README.md#deploy-from-source): source-based deploy path and
-  operator-oriented configuration notes
+- [Install and deployment](./install.md#install-from-source): source-based
+  deploy path and local bootstrap guidance
 - [Current architecture](./current-architecture.md): implemented pipeline,
   export modes, failure handling, and tradeoffs
 
 ## Publish A Release
 
-- [Release and packaging](./release.md): coordinated release flow, manual SAR
-  publish flow, and upgrade guidance
+- [Release guide](./release.md): coordinated release flow and manual SAR publish
+  workflow for maintainers
 
 ## Design Background
 
