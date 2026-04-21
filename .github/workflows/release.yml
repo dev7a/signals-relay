@@ -5,6 +5,15 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      share_scope:
+        description: Whether to keep the SAR app private to the publisher account or share it privately across the AWS Organization
+        required: true
+        default: account
+        type: choice
+        options:
+          - account
+          - organization
 
 concurrency:
   group: release-${{ github.workflow }}
@@ -127,6 +136,7 @@ jobs:
     with:
       checkout_ref: ${{ github.sha }}
       release_tag: ${{ needs.prepare_release.outputs.release_tag }}
+      share_scope: ${{ inputs.share_scope }}
     secrets: inherit
 
   tag_after_dispatch_publish:
@@ -175,4 +185,5 @@ jobs:
     with:
       checkout_ref: refs/tags/${{ github.ref_name }}
       release_tag: ${{ github.ref_name }}
+      share_scope: account
     secrets: inherit

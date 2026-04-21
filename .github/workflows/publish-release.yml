@@ -11,6 +11,11 @@ on:
         description: Release version tag name to validate and publish, for example v0.1.0 or v0.1.0-beta.1
         required: true
         type: string
+      share_scope:
+        description: Whether to keep the published SAR app private to the account or share it privately across the AWS Organization
+        required: false
+        default: "account"
+        type: string
 
 env:
   AWS_REGION: us-east-1
@@ -75,6 +80,21 @@ jobs:
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Validate sharing scope
+        shell: bash
+        env:
+          SHARE_SCOPE: ${{ inputs.share_scope }}
+        run: |
+          set -euo pipefail
+
+          case "$SHARE_SCOPE" in
+            account|organization) ;;
+            *)
+              echo "::error::share_scope must be either 'account' or 'organization'."
+              exit 1
+              ;;
+          esac
 
       - name: Set up the Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -331,3 +351,151 @@ jobs:
             --template "$RELEASE_ROOT/$VERSION/app/packaged.yaml" \
             --region "$AWS_REGION" \
             --semantic-version "$VERSION"
+
+      - name: Share the published application with the AWS Organization
+        if: ${{ inputs.share_scope == 'organization' }}
+        shell: bash
+        env:
+          SAM_TEMPLATE: ${{ steps.sam_template.outputs.path }}
+        run: |
+          set -euo pipefail
+
+          app_name_raw="$(
+            sed -nE '/AWS::ServerlessRepo::Application:/,/^[^[:space:]]/ s/^[[:space:]]*Name:[[:space:]]*(.+)$/\1/p' "$SAM_TEMPLATE" | head -n1
+          )"
+          app_name="$(scripts/normalize-yaml-scalar.sh "$app_name_raw")"
+          if [[ -z "$app_name" ]]; then
+            echo "::error::SAM template $SAM_TEMPLATE is missing Metadata.AWS::ServerlessRepo::Application.Name"
+            exit 1
+          fi
+
+          cleanup() {
+            local path
+
+            for path in "${policy_stdout:-}" "${policy_stderr:-}" "${verify_stderr:-}" "${org_stdout:-}" "${org_stderr:-}"; do
+              if [[ -n "$path" ]]; then
+                rm -f "$path"
+              fi
+            done
+          }
+
+          policy_stdout=""
+          policy_stderr=""
+          verify_stderr=""
+          org_stdout="$(mktemp)"
+          org_stderr="$(mktemp)"
+          trap cleanup EXIT
+
+          if aws organizations describe-organization \
+            --query 'Organization.Id' \
+            --output text >"$org_stdout" 2>"$org_stderr"; then
+            normalized_org_id="$(cat "$org_stdout")"
+          else
+            org_error="$(cat "$org_stderr")"
+            if [[ "$org_error" == *AccessDenied* || "$org_error" == *UnauthorizedOperation* || "$org_error" == *"not authorized"* ]]; then
+              echo "::error::Failed to discover the AWS Organization ID for org-wide SAR sharing because the assumed release role is missing the required IAM permission organizations:DescribeOrganization."
+              echo "::error::Ensure the publisher/release role policy allows organizations:DescribeOrganization before using share_scope=organization."
+            else
+              echo "::error::Failed to discover the AWS Organization ID for org-wide SAR sharing."
+            fi
+            printf '%s\n' "$org_error" >&2
+            exit 1
+          fi
+
+          if [[ ! "$normalized_org_id" =~ ^o-[a-z0-9]{10,32}$ ]]; then
+            echo "::error::Discovered AWS Organization ID is invalid: '$normalized_org_id'."
+            exit 1
+          fi
+
+          account_id="$(aws sts get-caller-identity --query Account --output text)"
+          application_arn="arn:aws:serverlessrepo:${AWS_REGION}:${account_id}:applications/${app_name}"
+
+          policy_stdout="$(mktemp)"
+          policy_stderr="$(mktemp)"
+          verify_stderr="$(mktemp)"
+
+          if aws serverlessrepo get-application-policy \
+            --region "$AWS_REGION" \
+            --application-id "$application_arn" \
+            --output json >"$policy_stdout" 2>"$policy_stderr"; then
+            existing_policy_json="$(cat "$policy_stdout")"
+          else
+            policy_error="$(cat "$policy_stderr")"
+            if grep -Eq 'ApplicationPolicy.*NotFound|ResourceNotFound|NotFoundException' <<<"$policy_error"; then
+              existing_policy_json='{"Statements":[]}'
+            else
+              echo "::error::Failed to get existing application policy for $application_arn"
+              cat "$policy_stderr" >&2
+              exit 1
+            fi
+          fi
+
+          merged_statements="$(
+            jq -cn \
+              --arg org_id "$normalized_org_id" \
+              --argjson existing "$existing_policy_json" '
+                (($existing.Statements // [])
+                  | map(select(.StatementId != "share-org")))
+                + [
+                  {
+                    StatementId: "share-org",
+                    Actions: ["Deploy", "UnshareApplication"],
+                    PrincipalOrgIDs: [$org_id],
+                    Principals: ["*"]
+                  }
+                ]
+              '
+          )"
+
+          applied="false"
+          for attempt in 1 2 3 4 5; do
+            if aws serverlessrepo put-application-policy \
+              --region "$AWS_REGION" \
+              --application-id "$application_arn" \
+              --statements "$merged_statements" \
+              >/dev/null; then
+              applied="true"
+              break
+            fi
+
+            sleep 5
+          done
+
+          if [[ "$applied" != "true" ]]; then
+            echo "::error::Failed to apply the org-wide SAR sharing policy after publish."
+            exit 1
+          fi
+
+          verified="false"
+          last_verify_error=""
+          for attempt in 1 2 3 4 5; do
+            if policy_json="$(aws serverlessrepo get-application-policy \
+                --region "$AWS_REGION" \
+                --application-id "$application_arn" \
+                --output json 2>"$verify_stderr")"; then
+              if jq -e --arg org_id "$normalized_org_id" '
+                any(.Statements[]?;
+                  .StatementId == "share-org"
+                  and ((.Actions // []) | index("Deploy"))
+                  and ((.Actions // []) | index("UnshareApplication"))
+                  and ((.Principals // []) | index("*"))
+                  and ((.PrincipalOrgIDs // []) | index($org_id))
+                )
+              ' <<<"$policy_json" >/dev/null; then
+                verified="true"
+                break
+              fi
+            else
+              last_verify_error="$(cat "$verify_stderr")"
+            fi
+
+            sleep 5
+          done
+
+          if [[ "$verified" != "true" ]]; then
+            echo "::error::Failed to verify the org-wide SAR sharing policy after publish."
+            if [[ -n "$last_verify_error" ]]; then
+              printf '%s\n' "$last_verify_error" >&2
+            fi
+            exit 1
+          fi

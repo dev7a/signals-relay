@@ -252,7 +252,12 @@ ready.
 - `sam publish` uses the packaged template emitted by the release workflow.
 - The release workflow keeps the semantic version explicit so SAR versions and
   Git tags stay aligned.
+- When `share_scope=organization` is selected for a manual release, the
+  workflow discovers the current AWS Organization ID and adds a private
+  org-wide share after publish instead of making the app public.
 
 This document does not claim that the application is already public in SAR. It
 describes the publication path and the install paths for either shared SAR
-consumers or source-based operators.
+consumers or source-based operators. Validate the org-shared install path from
+another member account in `us-east-1` before introducing any future public
+sharing step.
