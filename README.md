@@ -30,15 +30,15 @@ repository. The current private/shared SAR path is pinned to `us-east-1`.
 1. Create the shared Secrets Manager secret at
    `signals-relay/secrets/collector`:
 
-```json
-{
-  "endpoint": "https://example.com",
-  "headers": {
-    "authorization": "Bearer ...",
-    "x-api-key": "..."
-  }
-}
-```
+   ```json
+   {
+     "endpoint": "https://example.com",
+     "headers": {
+       "authorization": "Bearer ...",
+       "x-api-key": "..."
+     }
+   }
+   ```
 
 2. Open the `signals-relay` application in AWS Serverless Application
    Repository in `us-east-1` and deploy it as a CloudFormation stack.
@@ -140,15 +140,15 @@ path above.
 1. Create the shared Secrets Manager secret at
    `signals-relay/secrets/collector`:
 
-```json
-{
-  "endpoint": "https://example.com",
-  "headers": {
-    "authorization": "Bearer ...",
-    "x-api-key": "..."
-  }
-}
-```
+   ```json
+   {
+     "endpoint": "https://example.com",
+     "headers": {
+       "authorization": "Bearer ...",
+       "x-api-key": "..."
+     }
+   }
+   ```
 
 2. Generate a local `samconfig.toml` from the checked-in template:
 
@@ -188,10 +188,10 @@ upstream OpenTelemetry Lambda collector extension at `http://localhost:4318`.
 2. Set `ExportMode=collector` and `CollectorExtensionArn`.
 3. Build and deploy with the collector SAM profile:
 
-```bash
-sam build --template-file template.yaml
-sam deploy --config-env collector --stack-name signals-relay
-```
+   ```bash
+   sam build --template-file template.yaml
+   sam deploy --config-env collector --stack-name signals-relay
+   ```
 
 Collector mode requires a layer ARN published by the upstream
 [open-telemetry/opentelemetry-lambda releases](https://github.com/open-telemetry/opentelemetry-lambda/releases).
