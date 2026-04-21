@@ -38,25 +38,18 @@ The workflow expects:
 - `AWS_ROLE_TO_ASSUME` for GitHub Actions OIDC authentication
 - `SAR_ARTIFACT_BUCKET` for packaged template and asset uploads during release
 
-In the current `dev7a` setup, those values come from the public-account infrastructure stack in the companion `oidc-gha-provider` project:
-
-- `SignalsRelayPublisherRoleArn` -> `AWS_ROLE_TO_ASSUME`
-- `SignalsRelaySarArtifactsBucketName` -> `SAR_ARTIFACT_BUCKET`
-
 When you run the `release` workflow manually, GitHub presents a `share_scope`
 choice with `account` and `organization` values. `account` keeps the published
 SAR app private to the publisher account. `organization` follows `sam publish`
 with `serverlessrepo put-application-policy`, discovers the current AWS
 Organization ID at runtime, and shares the app privately across that
 organization. For that org-wide path to work, the role assumed via
-`AWS_ROLE_TO_ASSUME` must allow `organizations:DescribeOrganization`; in the
-current `dev7a` setup, that permission is granted on the publisher role managed
-by the companion `oidc-gha-provider` infrastructure. The tag-push release path
-keeps the safe default and publishes to the account only.
+`AWS_ROLE_TO_ASSUME` must allow `organizations:DescribeOrganization`. The
+tag-push release path keeps the safe default and publishes to the account only.
 
 ## Manual SAR Publish
 
-For manual publication from a workstation, configure a dedicated `public_publish` environment in `samconfig.toml` that targets the publication account and its SAR artifacts bucket.
+For manual publication from a workstation, configure a dedicated `public_publish` environment in `samconfig.toml` that targets the SAR publishing profile and artifacts bucket you want to use.
 
 Before publishing manually, set the coordinated repo version with [`scripts/set-version.sh`](../scripts/set-version.sh). The script updates [`Cargo.toml`](../Cargo.toml) and [`template.yaml`](../template.yaml), then asks Cargo to refresh the workspace package entries in [`Cargo.lock`](../Cargo.lock).
 
@@ -101,7 +94,7 @@ The `package` step writes a packaged template to `.aws-sam/publish-public.yaml`.
 For local installs from source:
 
 ```bash
-export SIGNALS_RELAY_MONITORING_PROFILE="monitoring.admin"
+export SIGNALS_RELAY_MONITORING_PROFILE="your-deploy-profile"
 export SIGNALS_RELAY_DEPLOYMENT_ID="replace-me"
 python3.11 ./scripts/init_samconfig.py
 sam build --template-file template.yaml

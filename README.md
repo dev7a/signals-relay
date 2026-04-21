@@ -95,7 +95,7 @@ This design exists because `aws/spans` usually arrives from CloudWatch Logs in v
 2. Generate a local `samconfig.toml` from the checked-in template.
 
 ```bash
-export SIGNALS_RELAY_MONITORING_PROFILE="monitoring.admin"
+export SIGNALS_RELAY_MONITORING_PROFILE="your-deploy-profile"
 export SIGNALS_RELAY_DEPLOYMENT_ID="replace-me"
 python3.11 ./scripts/init_samconfig.py
 ```
