@@ -490,7 +490,7 @@ pub fn build_partition_batches(event_payload: LogsEvent) -> Result<PartitionerBu
             Ok(record) => record,
             Err(err) => {
                 result.malformed_records += 1;
-                warn!("Failed to parse aws/spans JSON, skipping record: {err}");
+                warn!(error = %err, "Failed to parse aws/spans JSON, skipping record");
                 continue;
             }
         };
@@ -590,7 +590,7 @@ fn decode_partitioned_record(record: KinesisEventRecord) -> Result<Option<Partit
         match serde_json::from_slice(record.kinesis.data.as_slice()) {
             Ok(partitioned_record) => partitioned_record,
             Err(err) => {
-                warn!("Failed to parse partitioned Kinesis payload, skipping record: {err}");
+                warn!(error = %err, "Failed to parse partitioned Kinesis payload, skipping record");
                 return Ok(None);
             }
         };

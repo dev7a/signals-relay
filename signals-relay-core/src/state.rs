@@ -220,7 +220,7 @@ fn push_encoded_payload(
             parsed_batch.emitted_trace_ids.insert(trace_id.to_string());
             parsed_batch.telemetry_items.push(item);
         }
-        Err(err) => warn!("Failed to convert span to OTLP, skipping record: {err}"),
+        Err(err) => warn!(error = %err, "Failed to convert span to OTLP, skipping record"),
     }
 }
 
