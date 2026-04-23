@@ -11,7 +11,7 @@ use serverless_otlp_forwarder_core::{
 };
 use signals_relay_core::EncodedOtlpPayload;
 use state::ParsedBatch;
-use tracing::Span;
+use tracing::{info, Span};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 use crate::export::{send_compacted_telemetry_batch, RelayExportTarget};
@@ -40,12 +40,7 @@ pub async fn send_parsed_batch(
     export_target: &RelayExportTarget,
 ) -> Result<()> {
     let telemetry_items_count = parsed_batch.telemetry_items.len();
-    let mut emitted_trace_ids = parsed_batch
-        .emitted_trace_ids
-        .iter()
-        .cloned()
-        .collect::<Vec<_>>();
-    emitted_trace_ids.sort();
+    let emitted_trace_ids_count = parsed_batch.emitted_trace_ids.len();
 
     if telemetry_items_count == 0 {
         return Ok(());
@@ -64,11 +59,9 @@ pub async fn send_parsed_batch(
         .await
         .context("Failed to send OTLP telemetry batch")?;
 
-    println!(
-        "span_processor emitted telemetry_items={} emitted_trace_ids_count={} emitted_trace_ids={:?}",
-        telemetry_items_count,
-        emitted_trace_ids.len(),
-        emitted_trace_ids
+    info!(
+        telemetry_items = telemetry_items_count,
+        emitted_trace_ids_count, "Emitted telemetry batch"
     );
 
     Ok(())
