@@ -60,7 +60,7 @@ pub async fn send_parsed_batch(
         .context("Failed to send OTLP telemetry batch")?;
 
     info!(
-        telemetry_items = telemetry_items_count,
+        telemetry_items_count = telemetry_items_count,
         emitted_trace_ids_count, "Emitted telemetry batch"
     );
 
