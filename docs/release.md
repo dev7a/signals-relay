@@ -16,7 +16,9 @@ state:
 
 The release workflow packages the crate artifact for GitHub-based consumers and
 publishes the SAM application through AWS SAM and the Serverless Application
-Repository path.
+Repository path. It also emits versioned CloudFormation artifacts for
+launch-link style installs, but SAR remains the primary installation and
+publication path.
 
 ## Publish A Release
 
@@ -52,6 +54,8 @@ The workflow expects:
 
 - `AWS_ROLE_TO_ASSUME` for GitHub Actions OIDC authentication
 - `SAR_ARTIFACT_BUCKET` for packaged template and asset uploads during release
+- `CFN_ARTIFACT_BUCKET` as a GitHub Actions repository variable for versioned
+  CloudFormation launch-template artifacts
 
 When you run the `release` workflow manually, GitHub presents a `share_scope`
 choice with `account` and `organization` values. `account` keeps the published
@@ -61,6 +65,55 @@ Organization ID at runtime, and shares the app privately across that
 organization. For that org-wide path to work, the role assumed via
 `AWS_ROLE_TO_ASSUME` must allow `organizations:DescribeOrganization`. The
 tag-push release path keeps the safe default and publishes to the account only.
+
+The `CFN_ARTIFACT_BUCKET` variable points at the separately managed S3
+distribution bucket for CloudFormation launch-template artifacts. Keep this
+bucket in `us-east-1`, matching the current single-Region release path and the
+Lambda deployment package requirement that S3 code artifacts live in the same
+Region as the function. The release workflow uploads those artifacts under an
+immutable versioned prefix:
+
+```text
+signals-relay/cloudformation/releases/<version>/
+```
+
+The packaged SAM child template is uploaded to:
+
+```text
+signals-relay/cloudformation/releases/<version>/packaged.yaml
+```
+
+Lambda and layer artifacts referenced by that child template are uploaded below:
+
+```text
+signals-relay/cloudformation/releases/<version>/artifacts/
+```
+
+The parent launch templates are rendered at release time so their nested stack
+`TemplateURL` points at the immutable packaged SAM child template:
+
+```text
+signals-relay/cloudformation/releases/<version>/launch-no-vpc.yaml
+signals-relay/cloudformation/releases/<version>/launch-vpc.yaml
+```
+
+The no-VPC launch template exposes only the common application parameters. The
+VPC launch template exposes `VpcId` as `AWS::EC2::VPC::Id` and `SubnetIds` as
+`List<AWS::EC2::Subnet::Id>` so the CloudFormation console can offer account
+and Region-aware pickers. It passes those selections to the packaged SAM child
+template through an `AWS::CloudFormation::Stack` resource.
+
+The release workflow records the S3 URI, S3 HTTPS template URL, and
+CloudFormation quick-create URL for the default no-VPC launch template in
+`release/<version>/cloudformation/manifest.json`. The manifest also includes
+the packaged SAM child template URL and separate no-VPC and VPC launch-template
+URLs. Public access, bucket policy, request controls, and billing alarms for
+this distribution bucket are managed outside this repository.
+
+CloudFormation launch installs create a parent stack that creates the packaged
+SAM app as a nested child stack. Because the child template contains the SAM
+transform and IAM resources, operators should expect to acknowledge
+`CAPABILITY_AUTO_EXPAND` and IAM capabilities during stack creation.
 
 ## Manual SAR Publish
 
@@ -146,6 +199,9 @@ ready.
 - When `share_scope=organization` is selected for a manual release, the
   workflow discovers the current AWS Organization ID and adds a private
   org-wide share after publish instead of making the app public.
+- The CloudFormation packaged child template and parent launch templates are
+  additional versioned release artifacts for future launch-link workflows. They
+  do not replace SAR and do not introduce a mutable `latest` launch URL.
 
 This document does not claim that the application is already public in SAR. It
 describes the publication path and the install paths for either shared SAR

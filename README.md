@@ -98,7 +98,9 @@ for fuller SAM, AWS CDK, and Terraform examples.
 This repository ships two deliverables under one coordinated release version:
 
 - the reusable `signals-relay-core` crate
-- the deployable SAM application
+- the deployable SAM application, published through SAR and also packaged during
+  release as a versioned CloudFormation child template with no-VPC and VPC
+  parent launch templates
 
 ## Telemetry Pipeline
 

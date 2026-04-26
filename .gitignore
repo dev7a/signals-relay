@@ -1,4 +1,5 @@
 /.aws-sam/
+/.codex/
 /target/
 **/target/
 .DS_Store

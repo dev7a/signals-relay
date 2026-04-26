@@ -137,6 +137,7 @@ jobs:
       checkout_ref: ${{ github.sha }}
       release_tag: ${{ needs.prepare_release.outputs.release_tag }}
       share_scope: ${{ inputs.share_scope }}
+      cfn_artifact_bucket: ${{ vars.CFN_ARTIFACT_BUCKET }}
     secrets: inherit
 
   tag_after_dispatch_publish:
@@ -186,4 +187,5 @@ jobs:
       checkout_ref: refs/tags/${{ github.ref_name }}
       release_tag: ${{ github.ref_name }}
       share_scope: account
+      cfn_artifact_bucket: ${{ vars.CFN_ARTIFACT_BUCKET }}
     secrets: inherit

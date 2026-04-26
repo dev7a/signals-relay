@@ -16,6 +16,10 @@ on:
         required: false
         default: "account"
         type: string
+      cfn_artifact_bucket:
+        description: S3 bucket for versioned CloudFormation launch template artifacts
+        required: true
+        type: string
 
 env:
   AWS_REGION: us-east-1
@@ -332,6 +336,57 @@ jobs:
             "repository": "https://github.com/dev7a/signals-relay"
           }
           EOF
+
+      - name: Package the CloudFormation launch templates
+        shell: bash
+        env:
+          CFN_ARTIFACT_BUCKET: ${{ inputs.cfn_artifact_bucket }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${CFN_ARTIFACT_BUCKET:-}" ]]; then
+            echo "::error::CFN_ARTIFACT_BUCKET variable is required."
+            exit 1
+          fi
+
+          artifact_dir="$RELEASE_ROOT/$VERSION/cloudformation"
+          mkdir -p "$artifact_dir"
+          packaged_template="$artifact_dir/packaged.yaml"
+          built_template=".aws-sam/build/template.yaml"
+          cfn_prefix="signals-relay/cloudformation/releases/$VERSION"
+          cfn_artifact_prefix="$cfn_prefix/artifacts"
+          application_s3_uri="s3://$CFN_ARTIFACT_BUCKET/$cfn_prefix/packaged.yaml"
+          application_template_url="https://s3.${AWS_REGION}.amazonaws.com/${CFN_ARTIFACT_BUCKET}/${cfn_prefix}/packaged.yaml"
+
+          sam package \
+            --template-file "$built_template" \
+            --s3-bucket "$CFN_ARTIFACT_BUCKET" \
+            --s3-prefix "$cfn_artifact_prefix" \
+            --output-template-file "$packaged_template"
+
+          aws s3 cp "$packaged_template" "$application_s3_uri"
+
+          commit="$(git rev-parse HEAD)"
+          summary_file="$artifact_dir/summary.md"
+          python3 scripts/render_cfn_launch_templates.py \
+            --source-dir cloudformation \
+            --output-dir "$artifact_dir" \
+            --tag "$RELEASE_TAG" \
+            --version "$VERSION" \
+            --commit "$commit" \
+            --bucket "$CFN_ARTIFACT_BUCKET" \
+            --prefix "$cfn_prefix" \
+            --region "$AWS_REGION" \
+            --application-template-url "$application_template_url" \
+            --summary-file "$summary_file"
+
+          for launch_template in launch-no-vpc.yaml launch-vpc.yaml; do
+            aws s3 cp "$artifact_dir/$launch_template" "s3://$CFN_ARTIFACT_BUCKET/$cfn_prefix/$launch_template"
+          done
+
+          cat "$summary_file" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v6
