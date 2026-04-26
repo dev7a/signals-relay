@@ -1,0 +1,124 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Signals Relay launch wrapper for deployments inside an existing VPC
+
+# This source template is rendered by the release workflow. The TemplateURL
+# placeholder below is replaced with the versioned packaged SAM child template.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Source logs
+        Parameters:
+          - SpanLogGroupName
+      - Label:
+          default: Export target
+        Parameters:
+          - ExportMode
+          - CollectorExtensionArn
+      - Label:
+          default: Deployment refresh
+        Parameters:
+          - DeploymentId
+      - Label:
+          default: VPC networking
+        Parameters:
+          - VpcId
+          - SubnetIds
+    ParameterLabels:
+      SpanLogGroupName:
+        default: Span log group name
+      ExportMode:
+        default: Export mode
+      CollectorExtensionArn:
+        default: Collector extension layer ARN
+      DeploymentId:
+        default: Deployment refresh marker
+      VpcId:
+        default: VPC
+      SubnetIds:
+        default: Subnets
+
+Parameters:
+  SpanLogGroupName:
+    Type: String
+    Default: aws/spans
+    Description: CloudWatch Logs log group name that receives Application Signals aws/spans records.
+  ExportMode:
+    Type: String
+    Default: direct
+    AllowedValues:
+      - direct
+      - collector
+    Description: Export path for the relay Lambda. Use direct for runtime OTLP export or collector to send through the upstream OpenTelemetry Lambda collector extension.
+  CollectorExtensionArn:
+    Type: String
+    Default: ""
+    AllowedPattern: "^(|arn:[a-zA-Z0-9-]+:lambda:[a-zA-Z0-9-]+:\\d{12}:layer:[a-zA-Z0-9-_]+:[0-9]+)$"
+    ConstraintDescription: Must be empty or a valid OpenTelemetry Lambda collector layer ARN.
+    Description: ARN of the upstream OpenTelemetry Lambda collector extension layer. Required when ExportMode=collector.
+  DeploymentId:
+    Type: String
+    Default: ""
+    Description: Optional no-op deployment marker. Change this value to force a new Lambda deployment and fresh execution environments after secret rotation.
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: Existing VPC for the relay Lambda.
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Existing subnets for the relay Lambda. Select subnets in the chosen VPC.
+
+Rules:
+  CollectorModeRequiresLayerArn:
+    Assertions:
+      - Assert: !Or
+          - !Equals [!Ref ExportMode, direct]
+          - !Not [!Equals [!Ref CollectorExtensionArn, ""]]
+        AssertDescription: CollectorExtensionArn must be set when ExportMode=collector.
+  SubnetsMustBelongToVpc:
+    Assertions:
+      - Assert:
+          Fn::EachMemberEquals:
+            - Fn::ValueOf:
+                - SubnetIds
+                - VpcId
+            - Ref: VpcId
+        AssertDescription: Every selected subnet must belong to the selected VPC.
+
+Resources:
+  SignalsRelay:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3.us-east-1.amazonaws.com/signals-relay-placeholder-bucket/signals-relay/cloudformation/releases/0.0.0/packaged.yaml
+      Parameters:
+        SpanLogGroupName: !Ref SpanLogGroupName
+        ExportMode: !Ref ExportMode
+        CollectorExtensionArn: !Ref CollectorExtensionArn
+        DeploymentId: !Ref DeploymentId
+        VpcId: !Ref VpcId
+        SubnetIds: !Join [",", !Ref SubnetIds]
+
+Outputs:
+  ProcessorPartitionerFunctionArn:
+    Description: ARN of the aws/spans partitioner Lambda function
+    Value: !GetAtt SignalsRelay.Outputs.ProcessorPartitionerFunctionArn
+
+  ProcessorRelayFunctionArn:
+    Description: ARN of the aws/spans relay Lambda function
+    Value: !GetAtt SignalsRelay.Outputs.ProcessorRelayFunctionArn
+
+  SpanRelayStreamArn:
+    Description: ARN of the provisioned Kinesis stream used between partitioner and relay
+    Value: !GetAtt SignalsRelay.Outputs.SpanRelayStreamArn
+
+  PartitionerPublishFailureQueueUrl:
+    Description: SQS queue URL used for per-record Kinesis publish failures
+    Value: !GetAtt SignalsRelay.Outputs.PartitionerPublishFailureQueueUrl
+
+  PartitionerInvocationFailureQueueUrl:
+    Description: SQS queue URL used for unexpected async partitioner invocation failures
+    Value: !GetAtt SignalsRelay.Outputs.PartitionerInvocationFailureQueueUrl
+
+  SecurityGroupId:
+    Description: ID of the security group for the relay Lambda
+    Value: !GetAtt SignalsRelay.Outputs.SecurityGroupId

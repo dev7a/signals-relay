@@ -7,6 +7,39 @@ Metadata:
     config:
       ignore_checks:
         - W1030 # False positive for the optional collector layer ARN parameter.
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Source logs
+        Parameters:
+          - SpanLogGroupName
+      - Label:
+          default: Export target
+        Parameters:
+          - ExportMode
+          - CollectorExtensionArn
+      - Label:
+          default: Deployment refresh
+        Parameters:
+          - DeploymentId
+      - Label:
+          default: Optional networking
+        Parameters:
+          - VpcId
+          - SubnetIds
+    ParameterLabels:
+      SpanLogGroupName:
+        default: Span log group name
+      ExportMode:
+        default: Export mode
+      CollectorExtensionArn:
+        default: Collector extension layer ARN
+      DeploymentId:
+        default: Deployment refresh marker
+      VpcId:
+        default: VPC ID
+      SubnetIds:
+        default: Subnet IDs
   AWS::ServerlessRepo::Application:
     Name: signals-relay
     Description: Deployable AWS SAM application that converts Application Signals aws/spans records into OTLP trace payloads.

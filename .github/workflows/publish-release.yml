@@ -16,6 +16,10 @@ on:
         required: false
         default: "account"
         type: string
+      cfn_artifact_bucket:
+        description: S3 bucket for versioned CloudFormation launch template artifacts
+        required: true
+        type: string
 
 env:
   AWS_REGION: us-east-1
@@ -333,6 +337,78 @@ jobs:
           }
           EOF
 
+      - name: Package the CloudFormation launch templates
+        shell: bash
+        env:
+          CFN_ARTIFACT_BUCKET: ${{ inputs.cfn_artifact_bucket }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${CFN_ARTIFACT_BUCKET:-}" ]]; then
+            echo "::error::inputs.cfn_artifact_bucket is required. Configure the CFN_ARTIFACT_BUCKET repository variable in the calling release workflow."
+            exit 1
+          fi
+
+          bucket_location="$(
+            aws s3api get-bucket-location \
+              --bucket "$CFN_ARTIFACT_BUCKET" \
+              --query LocationConstraint \
+              --output text
+          )"
+          case "$bucket_location" in
+            None|null|"")
+              bucket_region="us-east-1"
+              ;;
+            EU)
+              bucket_region="eu-west-1"
+              ;;
+            *)
+              bucket_region="$bucket_location"
+              ;;
+          esac
+
+          if [[ "$bucket_region" != "$AWS_REGION" ]]; then
+            echo "::error::CFN_ARTIFACT_BUCKET must be in $AWS_REGION, but bucket '$CFN_ARTIFACT_BUCKET' is in $bucket_region."
+            exit 1
+          fi
+
+          artifact_dir="$RELEASE_ROOT/$VERSION/cloudformation"
+          mkdir -p "$artifact_dir"
+          packaged_template="$artifact_dir/packaged.yaml"
+          built_template=".aws-sam/build/template.yaml"
+          cfn_prefix="signals-relay/cloudformation/releases/$VERSION"
+          cfn_artifact_prefix="$cfn_prefix/artifacts"
+          application_s3_uri="s3://$CFN_ARTIFACT_BUCKET/$cfn_prefix/packaged.yaml"
+
+          sam package \
+            --template-file "$built_template" \
+            --s3-bucket "$CFN_ARTIFACT_BUCKET" \
+            --s3-prefix "$cfn_artifact_prefix" \
+            --output-template-file "$packaged_template"
+
+          aws s3 cp "$packaged_template" "$application_s3_uri"
+
+          commit="$(git rev-parse HEAD)"
+          summary_file="$artifact_dir/summary.md"
+          python3 scripts/render_cfn_launch_templates.py \
+            --source-dir cloudformation \
+            --output-dir "$artifact_dir" \
+            --tag "$RELEASE_TAG" \
+            --version "$VERSION" \
+            --commit "$commit" \
+            --bucket "$CFN_ARTIFACT_BUCKET" \
+            --prefix "$cfn_prefix" \
+            --region "$AWS_REGION" \
+            --summary-file "$summary_file"
+
+          for launch_template in launch-no-vpc.yaml launch-vpc.yaml; do
+            aws s3 cp "$artifact_dir/$launch_template" "s3://$CFN_ARTIFACT_BUCKET/$cfn_prefix/$launch_template"
+          done
+
+          cat "$summary_file" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload release artifacts
         uses: actions/upload-artifact@v6
         with:
@@ -448,7 +524,7 @@ jobs:
           )"
 
           applied="false"
-          for attempt in 1 2 3 4 5; do
+          for _ in 1 2 3 4 5; do
             if aws serverlessrepo put-application-policy \
               --region "$AWS_REGION" \
               --application-id "$application_arn" \
@@ -468,7 +544,7 @@ jobs:
 
           verified="false"
           last_verify_error=""
-          for attempt in 1 2 3 4 5; do
+          for _ in 1 2 3 4 5; do
             if policy_json="$(aws serverlessrepo get-application-policy \
                 --region "$AWS_REGION" \
                 --application-id "$application_arn" \
