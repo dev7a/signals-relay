@@ -347,7 +347,30 @@ jobs:
           set -euo pipefail
 
           if [[ -z "${CFN_ARTIFACT_BUCKET:-}" ]]; then
-            echo "::error::CFN_ARTIFACT_BUCKET variable is required."
+            echo "::error::inputs.cfn_artifact_bucket is required. Configure the CFN_ARTIFACT_BUCKET repository variable in the calling release workflow."
+            exit 1
+          fi
+
+          bucket_location="$(
+            aws s3api get-bucket-location \
+              --bucket "$CFN_ARTIFACT_BUCKET" \
+              --query LocationConstraint \
+              --output text
+          )"
+          case "$bucket_location" in
+            None|null|"")
+              bucket_region="us-east-1"
+              ;;
+            EU)
+              bucket_region="eu-west-1"
+              ;;
+            *)
+              bucket_region="$bucket_location"
+              ;;
+          esac
+
+          if [[ "$bucket_region" != "$AWS_REGION" ]]; then
+            echo "::error::CFN_ARTIFACT_BUCKET must be in $AWS_REGION, but bucket '$CFN_ARTIFACT_BUCKET' is in $bucket_region."
             exit 1
           fi
 
@@ -358,7 +381,6 @@ jobs:
           cfn_prefix="signals-relay/cloudformation/releases/$VERSION"
           cfn_artifact_prefix="$cfn_prefix/artifacts"
           application_s3_uri="s3://$CFN_ARTIFACT_BUCKET/$cfn_prefix/packaged.yaml"
-          application_template_url="https://s3.${AWS_REGION}.amazonaws.com/${CFN_ARTIFACT_BUCKET}/${cfn_prefix}/packaged.yaml"
 
           sam package \
             --template-file "$built_template" \
@@ -379,7 +401,6 @@ jobs:
             --bucket "$CFN_ARTIFACT_BUCKET" \
             --prefix "$cfn_prefix" \
             --region "$AWS_REGION" \
-            --application-template-url "$application_template_url" \
             --summary-file "$summary_file"
 
           for launch_template in launch-no-vpc.yaml launch-vpc.yaml; do
@@ -503,7 +524,7 @@ jobs:
           )"
 
           applied="false"
-          for attempt in 1 2 3 4 5; do
+          for _ in 1 2 3 4 5; do
             if aws serverlessrepo put-application-policy \
               --region "$AWS_REGION" \
               --application-id "$application_arn" \
@@ -523,7 +544,7 @@ jobs:
 
           verified="false"
           last_verify_error=""
-          for attempt in 1 2 3 4 5; do
+          for _ in 1 2 3 4 5; do
             if policy_json="$(aws serverlessrepo get-application-policy \
                 --region "$AWS_REGION" \
                 --application-id "$application_arn" \

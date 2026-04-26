@@ -62,16 +62,16 @@ def main() -> None:
     parser.add_argument("--bucket", required=True)
     parser.add_argument("--prefix", required=True)
     parser.add_argument("--region", required=True)
-    parser.add_argument("--application-template-url", required=True)
     parser.add_argument("--summary-file", type=Path, required=True)
     args = parser.parse_args()
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     application_key = f"{args.prefix}/packaged.yaml"
+    application_template_url = template_url(args.region, args.bucket, application_key)
     application = {
         "s3Uri": s3_uri(args.bucket, application_key),
-        "templateUrl": args.application_template_url,
+        "templateUrl": application_template_url,
     }
 
     launch_templates = {}
@@ -79,7 +79,7 @@ def main() -> None:
         output_name = config["output"]
         source_path = args.source_dir / config["source"]
         output_path = args.output_dir / output_name
-        render_template(source_path, output_path, args.application_template_url)
+        render_template(source_path, output_path, application_template_url)
 
         key = f"{args.prefix}/{output_name}"
         url = template_url(args.region, args.bucket, key)

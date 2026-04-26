@@ -110,6 +110,10 @@ the packaged SAM child template URL and separate no-VPC and VPC launch-template
 URLs. Public access, bucket policy, request controls, and billing alarms for
 this distribution bucket are managed outside this repository.
 
+The role assumed through `AWS_ROLE_TO_ASSUME` must be able to call
+`s3:GetBucketLocation` on `CFN_ARTIFACT_BUCKET`; the workflow uses that check to
+fail early if the CloudFormation distribution bucket is not in `us-east-1`.
+
 CloudFormation launch installs create a parent stack that creates the packaged
 SAM app as a nested child stack. Because the child template contains the SAM
 transform and IAM resources, operators should expect to acknowledge
