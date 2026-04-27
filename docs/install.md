@@ -258,8 +258,10 @@ to `us-east-1` for the current SAR publication path.
 
 ## Upgrade An Existing Install
 
-- GitHub Release quick launch: open the newer release and launch the same
-  deployment path against the existing stack name.
+- GitHub Release quick launch: copy the newer release's versioned template URL,
+  then use the CloudFormation **Update stack** flow for the existing stack. Do
+  not use the quick-launch badge itself for upgrades; it opens the
+  create-stack flow and will fail if the stack name already exists.
 - SAR console: update the existing stack to the newer SAR semantic version.
 - IaC parent stack: update `SemanticVersion` in the parent template and deploy.
 - Source deployment: pull the newer tag or branch, then run `sam build` and
