@@ -3,7 +3,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
+from urllib.parse import quote
+
+
+DEFAULT_REPOSITORY = "dev7a/signals-relay"
+LAUNCH_BADGE_PATH = "docs/assets/cloudformation-launch-badge.svg"
 
 
 def require_string(data: dict, key: str) -> str:
@@ -28,6 +34,13 @@ def require_launch_template(data: dict, name: str) -> dict:
             raise SystemExit(f"error: manifest is missing launchTemplates.{name}.{key}")
 
     return template
+
+
+def raw_github_url(repository: str, ref: str, path: str) -> str:
+    return (
+        "https://raw.githubusercontent.com/"
+        f"{quote(repository, safe='/')}/{quote(ref, safe='')}/{quote(path, safe='/')}"
+    )
 
 
 def main() -> None:
@@ -59,6 +72,12 @@ def main() -> None:
     semantic_version = require_string(manifest, "semanticVersion")
     no_vpc = require_launch_template(manifest, "noVpc")
     vpc = require_launch_template(manifest, "vpc")
+    repository = os.environ.get("GITHUB_REPOSITORY", DEFAULT_REPOSITORY)
+    launch_badge_url = raw_github_url(repository, tag, LAUNCH_BADGE_PATH)
+    launch_badge = (
+        "![Launch stack in AWS CloudFormation]"
+        f"({launch_badge_url})"
+    )
 
     lines = [
         f"# Signals Relay {tag}",
@@ -80,12 +99,12 @@ def main() -> None:
         "| --- | --- | --- |",
         (
             "| No VPC | "
-            f"[Launch in us-east-1]({no_vpc['quickCreateUrl']}) | "
+            f"[{launch_badge}]({no_vpc['quickCreateUrl']}) | "
             f"[launch-no-vpc.yaml]({no_vpc['templateUrl']}) |"
         ),
         (
             "| Existing VPC | "
-            f"[Launch in us-east-1]({vpc['quickCreateUrl']}) | "
+            f"[{launch_badge}]({vpc['quickCreateUrl']}) | "
             f"[launch-vpc.yaml]({vpc['templateUrl']}) |"
         ),
         "",

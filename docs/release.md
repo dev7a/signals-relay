@@ -108,10 +108,11 @@ billing alarms for this distribution bucket are managed outside this
 repository.
 
 After the publish job succeeds, the release workflow uses that manifest to
-publish the GitHub Release notes for the tag. Those notes include plain Markdown
-quick-launch links rather than image buttons, plus links to the no-VPC and VPC
-template URLs. The workflow also attaches the manifest, both launch templates,
-and the `signals-relay-core` crate artifact to the GitHub Release.
+publish the GitHub Release notes for the tag. Those notes include modern SVG
+quick-launch badge links that point at the immutable release tag, plus links to
+the no-VPC and VPC template URLs. The workflow also attaches the manifest, both
+launch templates, and the `signals-relay-core` crate artifact to the GitHub
+Release.
 
 The role assumed through `AWS_ROLE_TO_ASSUME` must be able to call
 `s3:GetBucketLocation` and `s3:PutObject` on `CFN_ARTIFACT_BUCKET`; the workflow
