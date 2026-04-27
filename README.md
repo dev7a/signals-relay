@@ -27,8 +27,12 @@ yourself.
 1. Open the GitHub Release for the version you want to deploy.
 2. Use the CloudFormation quick-launch link for either:
    - no VPC configuration
-   - an existing VPC and subnet selection
-3. Create the shared Secrets Manager secret at
+   - an existing VPC and subnet selection, if those subnets have outbound HTTPS
+     access to Secrets Manager and your OTLP destination
+3. Confirm that the source CloudWatch Logs log group already exists in the
+   target account and Region. The default is `aws/spans`; the stack subscribes
+   to it but does not create it.
+4. Create the shared Secrets Manager secret at
    `signals-relay/secrets/collector` before the stack runs:
 
    ```json
@@ -41,7 +45,7 @@ yourself.
    }
    ```
 
-4. In the CloudFormation console, acknowledge the prompts for IAM resources,
+5. In the CloudFormation console, acknowledge the prompts for IAM resources,
    IAM resources with custom names, and `CAPABILITY_AUTO_EXPAND`.
 
 The current SAR publication path is pinned to `us-east-1`. Full install

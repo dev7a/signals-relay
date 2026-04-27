@@ -16,12 +16,25 @@ starting a release, make sure:
 - The Rust workspace package versions match the SAM
   `AWS::ServerlessRepo::Application.SemanticVersion`.
 - The target tag `v<semver>` does not already exist.
-- `AWS_ROLE_TO_ASSUME` is configured for GitHub Actions OIDC.
-- `SAR_ARTIFACT_BUCKET` is configured for SAM package uploads.
+- `AWS_ROLE_TO_ASSUME` is configured as a GitHub Actions secret for OIDC.
+- `SAR_ARTIFACT_BUCKET` is configured as a GitHub Actions secret for SAM
+  package uploads.
 - `CFN_ARTIFACT_BUCKET` is configured as a GitHub Actions repository variable
   for CloudFormation launch artifacts.
 
 The current release path is single-Region and pinned to `us-east-1`.
+
+The assumed release role must be able to build, package, publish, share, and
+verify one release in that Region. At minimum, the workflow exercises:
+
+- `sts:GetCallerIdentity`
+- S3 read/write access for SAR package uploads through `SAR_ARTIFACT_BUCKET`
+- `s3:GetBucketLocation` and S3 write access for `CFN_ARTIFACT_BUCKET`
+- Serverless Application Repository publish and readback access, including
+  `serverlessrepo:GetApplication`
+- for `share_scope=organization`, `serverlessrepo:GetApplicationPolicy`,
+  `serverlessrepo:PutApplicationPolicy`, and
+  `organizations:DescribeOrganization`
 
 ## Manual Workflow Dispatch
 
@@ -39,9 +52,9 @@ publish.
 6. After publish succeeds, the workflow creates the tag and GitHub Release.
 
 For organization sharing, the assumed AWS role must allow
-`organizations:DescribeOrganization`. The workflow discovers the current
-Organization ID at runtime and applies a SAR application policy for that
-Organization.
+`organizations:DescribeOrganization` and SAR application-policy updates. The
+workflow discovers the current Organization ID at runtime and applies a SAR
+application policy for that Organization.
 
 ## Tag Push Behavior
 

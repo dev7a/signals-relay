@@ -12,8 +12,13 @@ that Region unless you are working from a source checkout and know which parts
 you need to change. The target account must be allowed to deploy the selected
 SAR version through account, organization, or public sharing.
 
-Before deployment, create the shared Secrets Manager secret in the target
-account and Region:
+Before deployment, confirm the source CloudWatch Logs log group exists in the
+target account and Region. The default `SpanLogGroupName` is `aws/spans`. The
+stack creates a subscription filter on that log group, but it does not create
+the log group itself. The log group may be empty, but it must exist before
+CloudFormation creates the subscription filter.
+
+Also create the shared Secrets Manager secret in the target account and Region:
 
 ```json
 {
@@ -52,6 +57,12 @@ The quick-launch templates are versioned release artifacts. They create a
 parent CloudFormation stack that deploys the published SAR application as a
 nested application. The target account must already be allowed to deploy that
 SAR application version.
+
+For VPC deployments, the launch template only passes the selected VPC and
+subnets to the SAR application. The child application creates a security group
+for the relay Lambda with outbound egress, but it does not create NAT gateways,
+route-table entries, or VPC endpoints. Choose subnets that can reach Secrets
+Manager and the OTLP destination over HTTPS, or provide that egress separately.
 
 ## Install From SAR
 
@@ -210,7 +221,8 @@ output "relay_function_arn" {
 
 For collector mode, add `CollectorExtensionArn` to `parameters`. If you pass
 VPC settings directly to the SAR stack, provide `SubnetIds` as a
-comma-separated string.
+comma-separated string. The selected subnets must already have outbound HTTPS
+access to Secrets Manager and the OTLP destination.
 
 ## Deploy From Source
 
@@ -227,6 +239,11 @@ Local source installs assume:
 - AWS SAM CLI
 - AWS credentials for the target deployment account and Region
 
+The local config generator renders deployment profiles and the maintainer
+`public_publish` profile into one ignored `samconfig.toml`. Source-only deploys
+use the `default` or `collector` profile, but the generator still requires the
+public publish placeholders so the rendered file is complete.
+
 Generate local SAM configuration:
 
 ```bash
@@ -236,6 +253,10 @@ export SIGNALS_RELAY_PUBLIC_PROFILE="your-publish-profile"
 export SIGNALS_RELAY_PUBLIC_SAR_BUCKET="your-sar-artifacts-bucket"
 uv run ./scripts/init_samconfig.py
 ```
+
+If you are only deploying from source, `SIGNALS_RELAY_PUBLIC_PROFILE` may reuse
+your deployment profile and `SIGNALS_RELAY_PUBLIC_SAR_BUCKET` is only used if
+you later run the `public_publish` package/publish profile.
 
 Build and deploy direct mode:
 
@@ -250,6 +271,11 @@ Deploy collector mode:
 sam build --template-file template.yaml
 sam deploy --config-env collector --stack-name signals-relay
 ```
+
+The generated collector profile uses `SIGNALS_RELAY_COLLECTOR_EXTENSION_ARN`
+when set. If that variable is omitted, the generator falls back to the checked-in
+`us-east-1` arm64 OpenTelemetry collector layer ARN. Verify the layer ARN for
+your target Region and collector version before using collector mode.
 
 The generator renders the ignored local `samconfig.toml` from
 `samconfig.example.toml`. Set `SIGNALS_RELAY_REGION` when local deployment
