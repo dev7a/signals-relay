@@ -21,6 +21,11 @@ install Rust, install `cargo-lambda`, install `uv`, or generate a local
 The current private/shared SAR publication path is pinned to `us-east-1`, so
 use that Region when browsing or deploying the application.
 
+Each GitHub Release includes versioned CloudFormation quick-launch links for
+the no-VPC and existing-VPC deployment paths. Use those links when you want the
+CloudFormation console to pre-load the matching launch wrapper for a published
+SAR version.
+
 Before you deploy, create the shared Secrets Manager secret that both export
 modes expect at `signals-relay/secrets/collector`:
 
@@ -57,6 +62,13 @@ If you choose `collector` mode, the relay sends OTLP to
 extension. If you choose `direct` mode, the relay exports to the OTLP endpoint
 described by the shared secret.
 
+When you deploy through a CloudFormation launch-link wrapper, acknowledge all
+capability prompts shown by the CloudFormation console before creating the
+stack. For this application, expect prompts for IAM resources, IAM resources
+with custom names, and `CAPABILITY_AUTO_EXPAND`. The nested SAR application
+also requires the resource-policy capability when deployed through tooling that
+asks for explicit capability names.
+
 ### Deploy From Another SAM Template
 
 If you want to compose the shared SAR application into a larger SAM or
@@ -90,13 +102,13 @@ as `DeploymentId`, `VpcId`, and `SubnetIds` can be passed the same way. Keep
 the parent stack in `us-east-1` so it can reach the currently shared SAR app.
 
 When you deploy a parent SAM template that embeds `signals-relay`, acknowledge
-the nested application plus the child app's IAM and resource-policy
+the nested application plus the child app's IAM, named-IAM, and resource-policy
 requirements:
 
 ```bash
 sam deploy \
   --stack-name my-signals-relay-wrapper \
-  --capabilities CAPABILITY_IAM CAPABILITY_RESOURCE_POLICY CAPABILITY_AUTO_EXPAND
+  --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_RESOURCE_POLICY CAPABILITY_AUTO_EXPAND
 ```
 
 The nested app's sharing rules still apply to the parent stack. If the
