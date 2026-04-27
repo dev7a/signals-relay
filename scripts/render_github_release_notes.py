@@ -36,10 +36,11 @@ def require_launch_template(data: dict, name: str) -> dict:
     return template
 
 
-def raw_github_url(repository: str, ref: str, path: str) -> str:
+def github_blob_raw_url(repository: str, ref: str, path: str) -> str:
     return (
-        "https://raw.githubusercontent.com/"
-        f"{quote(repository, safe='/')}/{quote(ref, safe='')}/{quote(path, safe='/')}"
+        "https://github.com/"
+        f"{quote(repository, safe='/')}/blob/{quote(ref, safe='')}/"
+        f"{quote(path, safe='/')}?raw=1"
     )
 
 
@@ -73,7 +74,7 @@ def main() -> None:
     no_vpc = require_launch_template(manifest, "noVpc")
     vpc = require_launch_template(manifest, "vpc")
     repository = os.environ.get("GITHUB_REPOSITORY", DEFAULT_REPOSITORY)
-    launch_badge_url = raw_github_url(repository, tag, LAUNCH_BADGE_PATH)
+    launch_badge_url = github_blob_raw_url(repository, tag, LAUNCH_BADGE_PATH)
     launch_badge = (
         "![Launch stack in AWS CloudFormation]"
         f"({launch_badge_url})"
