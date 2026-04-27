@@ -32,6 +32,27 @@ The Kinesis stream is not just a buffer. It is the point where the repository
 takes control of grouping by `traceId` instead of depending on CloudWatch Logs
 delivery shape.
 
+## Why This Architecture Was Chosen
+
+The main observed problem was not just buffering. CloudWatch Logs often delivers
+`aws/spans` records in small batches, and managed-link decorators need to be
+near their target spans long enough for link reconciliation.
+
+The partitioner, Kinesis stream, and tumbling-window relay solve that problem
+directly:
+
+- the partitioner chooses `traceId` as the Kinesis partition key
+- Kinesis gives the relay trace-based grouping instead of source-log delivery
+  grouping
+- the relay gets a bounded 60-second window for managed-link reconciliation
+- OTLP export happens once on the final tumbling-window invoke
+- same-window reconciliation state stays inside Lambda response state instead
+  of an external state store
+
+This keeps the hot path event driven while still giving the relay enough local
+context to reconcile managed links. It also makes the main tradeoff explicit:
+correctness is bounded by the active window.
+
 ## Export Modes
 
 ### Direct
@@ -104,6 +125,8 @@ batching.
 
 ## Design Background
 
-- [Why the current architecture was chosen](./cloudwatch-lambda-partitioner-kinesis-tumbling-window.md)
+These pages are retained as alternative design and tradeoff history. They are
+not the recommended deployment path.
+
 - [CloudWatch Logs to Kinesis to Lambda relay](./cloudwatch-kinesis-lambda-relay.md)
 - [Long poller with SQS for delayed work](./long-poller-sqs-delayed-task.md)

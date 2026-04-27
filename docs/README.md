@@ -12,9 +12,8 @@ Choose the document that matches your task.
 ## Understand The Architecture
 
 - [Current architecture](./current-architecture.md): canonical explanation of
-  the implemented pipeline, export modes, failure handling, and tradeoffs
-- [Why the current architecture was chosen](./cloudwatch-lambda-partitioner-kinesis-tumbling-window.md):
-  design rationale for the partitioner, Kinesis stream, and tumbling window
+  the implemented pipeline, why it uses the partitioner, Kinesis stream, and
+  tumbling window, export modes, failure handling, and tradeoffs
 
 ## Maintain The Release
 
@@ -24,8 +23,8 @@ Choose the document that matches your task.
 
 ## Design Background
 
-These pages are retained as explanation and tradeoff history. They are not the
-recommended deployment path unless they explicitly describe the current design.
+These pages are retained as alternative design and tradeoff history. They are
+not the recommended deployment path.
 
 - [CloudWatch Logs to Kinesis to Lambda relay](./cloudwatch-kinesis-lambda-relay.md)
 - [Long poller with SQS for delayed work](./long-poller-sqs-delayed-task.md)
