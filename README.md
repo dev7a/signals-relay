@@ -104,7 +104,8 @@ This repository ships two deliverables under one coordinated release version:
 - the reusable `signals-relay-core` crate
 - the deployable SAM application, published through SAR; each release also emits
   versioned SAR-backed CloudFormation launch templates for no-VPC and VPC
-  console deployments
+  console deployments and publishes their quick-launch links in the GitHub
+  Release notes
 
 ## Telemetry Pipeline
 

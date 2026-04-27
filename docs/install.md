@@ -21,6 +21,11 @@ install Rust, install `cargo-lambda`, install `uv`, or generate a local
 The current private/shared SAR publication path is pinned to `us-east-1`, so
 use that Region when browsing or deploying the application.
 
+Each GitHub Release includes versioned CloudFormation quick-launch links for
+the no-VPC and existing-VPC deployment paths. Use those links when you want the
+CloudFormation console to pre-load the matching launch wrapper for a published
+SAR version.
+
 Before you deploy, create the shared Secrets Manager secret that both export
 modes expect at `signals-relay/secrets/collector`:
 

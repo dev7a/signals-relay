@@ -28,6 +28,7 @@ jobs:
       contents: read
     outputs:
       release_tag: ${{ steps.version.outputs.tag }}
+      release_version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Check out the repository
@@ -189,3 +190,135 @@ jobs:
       share_scope: account
       cfn_artifact_bucket: ${{ vars.CFN_ARTIFACT_BUCKET }}
     secrets: inherit
+
+  create_github_release:
+    if: >-
+      ${{
+        always()
+        && (
+          (
+            github.event_name == 'workflow_dispatch'
+            && needs.publish_from_dispatch.result == 'success'
+            && needs.tag_after_dispatch_publish.result == 'success'
+          )
+          || (
+            github.event_name == 'push'
+            && needs.publish_from_tag.result == 'success'
+          )
+        )
+      }}
+    name: Create GitHub Release
+    needs:
+      - prepare_release
+      - publish_from_dispatch
+      - tag_after_dispatch_publish
+      - publish_from_tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out the release commit
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - name: Resolve release metadata
+        id: release
+        shell: bash
+        env:
+          DISPATCH_RELEASE_TAG: ${{ needs.prepare_release.outputs.release_tag }}
+          PUSH_RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          case "$GITHUB_EVENT_NAME" in
+            workflow_dispatch)
+              release_tag="$DISPATCH_RELEASE_TAG"
+              ;;
+            push)
+              release_tag="$PUSH_RELEASE_TAG"
+              ;;
+            *)
+              echo "::error::Unsupported event for GitHub Release creation: $GITHUB_EVENT_NAME"
+              exit 1
+              ;;
+          esac
+
+          if [[ ! "$release_tag" =~ ^v.+ ]]; then
+            echo "::error::Release tag must start with 'v', got '$release_tag'."
+            exit 1
+          fi
+
+          release_version="${release_tag#v}"
+          echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "version=$release_version" >> "$GITHUB_OUTPUT"
+
+      - name: Download release artifact bundle
+        uses: actions/download-artifact@v6
+        with:
+          name: signals-relay-${{ steps.release.outputs.version }}
+          path: release/${{ steps.release.outputs.version }}
+
+      - name: Render release notes and collect assets
+        id: release_assets
+        shell: bash
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          artifact_dir="release/$VERSION"
+          manifest="$artifact_dir/cloudformation/manifest.json"
+          notes_file="$RUNNER_TEMP/github-release-notes.md"
+          asset_dir="$RUNNER_TEMP/github-release-assets"
+
+          if [[ ! -f "$manifest" ]]; then
+            echo "::error::Missing CloudFormation manifest at $manifest"
+            exit 1
+          fi
+
+          python3 scripts/render_github_release_notes.py \
+            --manifest "$manifest" \
+            --output "$notes_file"
+
+          rm -rf "$asset_dir"
+          mkdir -p "$asset_dir"
+          cp "$manifest" "$asset_dir/signals-relay-$VERSION-cloudformation-manifest.json"
+          cp "$artifact_dir/cloudformation/launch-no-vpc.yaml" "$asset_dir/signals-relay-$VERSION-launch-no-vpc.yaml"
+          cp "$artifact_dir/cloudformation/launch-vpc.yaml" "$asset_dir/signals-relay-$VERSION-launch-vpc.yaml"
+          cp "$artifact_dir/core/signals-relay-core-$VERSION.crate" "$asset_dir/"
+
+          echo "notes_file=$notes_file" >> "$GITHUB_OUTPUT"
+          echo "asset_dir=$asset_dir" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          NOTES_FILE: ${{ steps.release_assets.outputs.notes_file }}
+          ASSET_DIR: ${{ steps.release_assets.outputs.asset_dir }}
+        run: |
+          set -euo pipefail
+
+          release_flags=(
+            --verify-tag
+            --title "Signals Relay $RELEASE_TAG"
+            --notes-file "$NOTES_FILE"
+          )
+          if [[ "$RELEASE_VERSION" == *-* ]]; then
+            release_flags+=(--prerelease)
+          fi
+
+          upload_flags=()
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" "${release_flags[@]}"
+            upload_flags+=(--clobber)
+          else
+            gh release create "$RELEASE_TAG" "${release_flags[@]}"
+          fi
+
+          gh release upload "$RELEASE_TAG" "$ASSET_DIR"/* "${upload_flags[@]}"

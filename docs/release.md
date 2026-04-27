@@ -35,7 +35,10 @@ matching Git tag.
    exists, and publishes the release from the checked-out commit first.
 5. Only after the publish job succeeds does the workflow create and push the
    matching Git tag.
-6. If you push a matching tag outside the workflow, the same publish job still
+6. After the tag exists, the workflow creates or updates the matching GitHub
+   Release with SAR details, CloudFormation quick-launch links, and the
+   versioned launch-template assets.
+7. If you push a matching tag outside the workflow, the same publish job still
    runs on the `push.tags` trigger with account-only sharing.
 
 Examples:
@@ -103,6 +106,12 @@ the SAR `ApplicationId`, the SAR semantic version, and separate no-VPC and VPC
 launch-template URLs. Public access, bucket policy, request controls, and
 billing alarms for this distribution bucket are managed outside this
 repository.
+
+After the publish job succeeds, the release workflow uses that manifest to
+publish the GitHub Release notes for the tag. Those notes include plain Markdown
+quick-launch links rather than image buttons, plus links to the no-VPC and VPC
+template URLs. The workflow also attaches the manifest, both launch templates,
+and the `signals-relay-core` crate artifact to the GitHub Release.
 
 The role assumed through `AWS_ROLE_TO_ASSUME` must be able to call
 `s3:GetBucketLocation` and `s3:PutObject` on `CFN_ARTIFACT_BUCKET`; the workflow
@@ -209,6 +218,9 @@ ready.
 - The SAR-backed CloudFormation parent launch templates are additional
   versioned release artifacts for launch-link workflows. They do not replace SAR
   and do not introduce a mutable `latest` launch URL.
+- GitHub Release notes are generated from the CloudFormation manifest after the
+  SAR app has been published and the versioned launch templates have been
+  uploaded.
 
 This document does not claim that the application is already public in SAR. It
 describes the publication path and the install paths for either shared SAR
