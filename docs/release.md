@@ -115,7 +115,12 @@ SAR app as a nested application. The target account must be allowed to deploy
 that SAR application, either because it is shared privately or public. Because
 the parent wrapper and child application use the SAM transform and the child app
 contains IAM resources, operators should expect to acknowledge
-`CAPABILITY_AUTO_EXPAND` and IAM capabilities during stack creation.
+`CAPABILITY_AUTO_EXPAND` plus the IAM capability prompts during stack creation.
+In the CloudFormation console launch flow, this appears as acknowledgements for
+IAM resources, IAM resources with custom names, and `CAPABILITY_AUTO_EXPAND`.
+Tooling that names capabilities explicitly should include
+`CAPABILITY_IAM`, `CAPABILITY_NAMED_IAM`, `CAPABILITY_RESOURCE_POLICY`, and
+`CAPABILITY_AUTO_EXPAND`.
 
 ## Manual SAR Publish
 

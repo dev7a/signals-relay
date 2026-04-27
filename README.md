@@ -50,6 +50,10 @@ repository. The current private/shared SAR path is pinned to `us-east-1`.
    - `SpanLogGroupName` defaults to `aws/spans`
    - `DeploymentId` is optional
    - `VpcId` and `SubnetIds` are optional
+4. Acknowledge the CloudFormation capability prompts before creating the stack.
+   The launch wrappers use the SAM transform and the child application creates
+   IAM/resource-policy resources, so the console can ask you to acknowledge IAM
+   resources, IAM resources with custom names, and `CAPABILITY_AUTO_EXPAND`.
 
 If you choose `collector` mode, use an upstream OpenTelemetry Lambda collector
 layer ARN for your Region and architecture. If you just want to evaluate the
@@ -80,13 +84,13 @@ Outputs:
 ```
 
 Deploy parent SAM templates that embed SAR applications with
-`CAPABILITY_AUTO_EXPAND`; for `signals-relay`, also acknowledge the IAM and
-resource-policy capabilities required by the child app:
+`CAPABILITY_AUTO_EXPAND`; for `signals-relay`, also acknowledge the IAM, named
+IAM, and resource-policy capabilities required by the child app:
 
 ```bash
 sam deploy \
   --stack-name my-signals-relay-wrapper \
-  --capabilities CAPABILITY_IAM CAPABILITY_RESOURCE_POLICY CAPABILITY_AUTO_EXPAND
+  --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_RESOURCE_POLICY CAPABILITY_AUTO_EXPAND
 ```
 
 Replace `ApplicationId` and `SemanticVersion` with the shared values visible in
