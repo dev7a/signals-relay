@@ -38,7 +38,16 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
-    manifest = json.loads(args.manifest.read_text())
+    try:
+        manifest = json.loads(args.manifest.read_text())
+    except OSError as exc:
+        raise SystemExit(
+            f"error: failed to read manifest '{args.manifest}': {exc}"
+        )
+    except json.JSONDecodeError as exc:
+        raise SystemExit(
+            f"error: failed to parse manifest '{args.manifest}': {exc}"
+        )
     tag = require_string(manifest, "tag")
     version = require_string(manifest, "version")
     commit = require_string(manifest, "commit")
