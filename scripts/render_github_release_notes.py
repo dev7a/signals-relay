@@ -48,6 +48,10 @@ def main() -> None:
         raise SystemExit(
             f"error: failed to parse manifest '{args.manifest}': {exc}"
         )
+    if not isinstance(manifest, dict):
+        raise SystemExit(
+            f"error: manifest '{args.manifest}' root must be a JSON object"
+        )
     tag = require_string(manifest, "tag")
     version = require_string(manifest, "version")
     commit = require_string(manifest, "commit")
@@ -108,7 +112,7 @@ def main() -> None:
         )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text("\n".join(lines))
+    args.output.write_text("\n".join(lines) + "\n")
 
 
 if __name__ == "__main__":
