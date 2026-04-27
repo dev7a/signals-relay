@@ -1,28 +1,31 @@
 # Documentation
 
-Choose the path that matches what you are trying to do.
+Choose the document that matches your task.
 
-## Try The Application
+## Deploy Or Evaluate
 
-- [Root README](../README.md): start here if you want to try the shared SAR
-  application or decide whether you need a source checkout
-- [Install and deployment](./install.md): SAR install path, IaC examples, and
-  source deployment guidance for users who want to run the application
+- [Root README](../README.md): project overview, fastest install path,
+  architecture summary, and documentation map
+- [Install and deployment](./install.md): operator guide for GitHub Release
+  quick launch, SAR installs, IaC composition, source deployment, and upgrades
 
-## Deploy Or Modify From Source
+## Understand The Architecture
 
-- [Install and deployment](./install.md#install-from-source): source-based
-  deploy path and local bootstrap guidance
-- [Current architecture](./current-architecture.md): implemented pipeline,
-  export modes, failure handling, and tradeoffs
+- [Current architecture](./current-architecture.md): canonical explanation of
+  the implemented pipeline, export modes, failure handling, and tradeoffs
+- [Why the current architecture was chosen](./cloudwatch-lambda-partitioner-kinesis-tumbling-window.md):
+  design rationale for the partitioner, Kinesis stream, and tumbling window
 
-## Publish A Release
+## Maintain The Release
 
-- [Release guide](./release.md): coordinated release flow and manual SAR publish
-  workflow for maintainers
+- [Release guide](./release.md): maintainer-only workflow for coordinated
+  versions, SAR publication, GitHub Releases, and CloudFormation launch
+  artifacts
 
 ## Design Background
 
-- [Why the current architecture was chosen](./cloudwatch-lambda-partitioner-kinesis-tumbling-window.md)
+These pages are retained as explanation and tradeoff history. They are not the
+recommended deployment path unless they explicitly describe the current design.
+
 - [CloudWatch Logs to Kinesis to Lambda relay](./cloudwatch-kinesis-lambda-relay.md)
 - [Long poller with SQS for delayed work](./long-poller-sqs-delayed-task.md)

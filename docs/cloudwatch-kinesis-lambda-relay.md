@@ -1,59 +1,56 @@
 # CloudWatch Logs To Kinesis To Lambda Relay
 
 > [!NOTE]
-> This document captures an alternative considered during design. It is retained for tradeoff history and comparison, not as the recommended deployment path for this repository.
+> This is an alternative design note. It is retained for tradeoff history and
+> comparison, not as the recommended deployment path.
 
-## Summary
+## What It Is
+
+This alternative sends CloudWatch Logs subscription records directly to Kinesis
+Data Streams. A relay Lambda then consumes the stream and emits OTLP.
 
 Flow:
 
-1. CloudWatch Logs subscription sends records to Kinesis Data Streams
-2. Lambda consumes from Kinesis with an event source mapping
-3. The relay Lambda parses spans and emits OTLP
+1. CloudWatch Logs subscription sends `aws/spans` records to Kinesis.
+2. Kinesis buffers records.
+3. Relay Lambda consumes records through an event source mapping.
+4. The relay parses spans and exports OTLP.
 
-This approach introduces a stream between CloudWatch Logs and the processor Lambda. The main benefit is better control over Lambda batching through Kinesis event source mapping settings.
+## Why It Was Considered
+
+This approach keeps a durable stream between CloudWatch Logs and Lambda while
+removing the explicit partitioner Lambda from the current design. The main
+appeal is better invoke-level batching than direct CloudWatch Logs to Lambda.
 
 ## Strengths
 
-- Better invoke-level batching than direct CloudWatch Logs to Lambda.
-- Lambda event source mapping gives direct controls for `BatchSize` and `MaximumBatchingWindowInSeconds`.
-- Kinesis adds a durable buffer between CloudWatch Logs and the processor.
-- The intake Lambda can scale through shards rather than CloudWatch subscription fan-out alone.
+- Kinesis provides a durable buffer.
+- Lambda event source mapping exposes `BatchSize` and
+  `MaximumBatchingWindowInSeconds`.
+- Relay invocations can scale through stream shards.
+- The pipeline has fewer Lambda functions than the current design.
 
 ## Weaknesses
 
-- CloudWatch Logs still controls how many source log events are packed into each Kinesis record.
-- This does not solve the semantic grouping problem by itself. Related spans may still land in different batches.
-- Managed-link reconciliation still needs external state unless another mechanism is added.
-- Throughput planning is harder if `ByLogStream` creates hot partitions.
-
-## Cost Considerations
-
-Main billed components:
-
-- Kinesis stream-hours and ingest
-- relay Lambda invokes and duration
-- downstream collector ingest
-- external state, if DynamoDB and SQS are retained
-
-This model can reduce:
-
-- the number of relay Lambda invokes
-- the number of local collector POSTs
-
-This model adds:
-
-- Kinesis as a permanent cost center
-- operational attention around shard behavior or on-demand stream scaling
-
-Actual costs will depend on traffic patterns and configuration.
+- CloudWatch Logs still controls how source log events are packed into Kinesis
+  records.
+- The design does not choose `traceId` as the Kinesis partition key.
+- Related spans may still land in different relay batches.
+- Managed-link reconciliation would need external state or weaker correctness.
+- Throughput planning is harder if CloudWatch Logs distribution creates hot
+  partitions.
 
 ## Best Fit
 
-Use this approach when the main problem is CloudWatch Logs batching, and when it is acceptable to keep external reconciliation state or accept weaker link handling.
+Use this approach when the main problem is invoke-level batching, and when
+trace-based grouping or managed-link reconciliation is less important than
+removing the partitioner Lambda.
 
 ## Open Questions
 
-- Would `Random` or `ByLogStream` distribution be better for `aws/spans` throughput?
-- Would Kinesis on-demand be sufficient, or would provisioned streams be needed?
-- Is the batching improvement large enough to justify the extra stream layer?
+- Would CloudWatch Logs subscription distribution create hot partitions for
+  `aws/spans` traffic?
+- Would Kinesis on-demand be enough, or would the stream need provisioned
+  capacity?
+- Is the batching improvement large enough to justify the stream without the
+  trace-based partitioning used by the current design?

@@ -1,32 +1,54 @@
-# Why This Architecture Was Chosen
+# Why The Current Architecture Was Chosen
 
 > [!NOTE]
-> This document explains why the current architecture was chosen. For deployment and configuration, start with the root README and [current architecture](./current-architecture.md).
+> This is the design rationale for the current implementation. For deployment
+> steps, start with [install.md](./install.md). For the canonical runtime
+> architecture, start with [current-architecture.md](./current-architecture.md).
 
-## Summary
+## What It Is
 
-The current implementation uses CloudWatch Logs to partitioner Lambda to Kinesis to relay Lambda with a tumbling window because it solves the main observed problem directly:
+Signals Relay uses this current data path:
 
-- CloudWatch Logs tends to deliver `aws/spans` in very small batches
-- each `aws/spans` log record represents a single span
-- direct delivery therefore produces many Lambda invokes and many collector requests
-- managed-link decorators need to be co-located with their target spans long enough to reconcile links correctly
+1. CloudWatch Logs subscription on `aws/spans`
+2. partitioner Lambda
+3. Kinesis stream partitioned by `traceId`
+4. relay Lambda with a 60-second tumbling window
+5. OTLP export from the relay, either direct or through the collector extension
 
-This design adds a repartitioning stage so batching is based on `traceId` instead of on CloudWatch Logs delivery behavior. The relay then aggregates those records inside a 60-second tumbling window and emits OTLP once per final window invoke.
+The partitioner exists so Kinesis partitioning is based on trace identity, not
+on CloudWatch Logs delivery behavior.
 
-## Why It Beat The Other Options
+## Why It Was Chosen
 
-- Compared with direct CloudWatch Logs to Lambda, it gives direct control over partitioning and batching.
-- Compared with CloudWatch Logs to Kinesis directly, it avoids relying on CloudWatch subscription distribution behavior and lets the repo choose `traceId` as the Kinesis partition key.
-- Compared with the earlier DynamoDB and SQS parking approach, it keeps the steady-state runtime simpler and removes external reconciliation state from the hot path.
-- Compared with a long-poller design, it stays event-driven and avoids building a custom checkpointing and scheduling control plane.
+The main observed problem was not just buffering. CloudWatch Logs tends to
+deliver `aws/spans` records in small batches, and managed-link decorators need
+to be near their target spans long enough for link reconciliation.
 
-## Tradeoff Accepted
+This design solves that problem directly:
 
-The trade accepted by this repository is `window-only` correctness:
+- it groups records by `traceId`
+- it gives the relay a bounded window for managed-link reconciliation
+- it emits OTLP once per final tumbling-window invoke
+- it keeps same-window state inside Lambda response state
 
-- link reconciliation is bounded by the tumbling window
-- late decorators are dropped and counted
-- publish-failure queue replays may miss same-window reconciliation if they are replayed later
+## Strengths
 
-That is a narrower correctness contract than durable external state, but it buys much stronger batching control with less steady-state operational surface.
+- Better trace-based grouping than direct CloudWatch Logs delivery.
+- Direct control over Kinesis partition keys.
+- Bounded reconciliation without DynamoDB on the hot path.
+- Event-driven processing without a custom polling loop.
+- One export contract for both direct mode and collector mode.
+
+## Weaknesses
+
+- Adds a partitioner Lambda and Kinesis stream to the steady-state path.
+- Link reconciliation is limited to the 60-second tumbling window.
+- Late managed-link decorators are dropped and counted.
+- Replaying publish-failure queue messages after the original window may miss
+  same-window reconciliation.
+
+## Best Fit
+
+This is the right fit when trace-based batching and bounded managed-link
+reconciliation matter more than minimizing the number of AWS services in the
+pipeline.

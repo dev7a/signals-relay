@@ -1,33 +1,18 @@
-# Install and Deployment
+# Install And Deployment
 
-Use this document when you want to deploy or evaluate `signals-relay`.
+Use this guide when you want to deploy, evaluate, or upgrade Signals Relay.
 
-For release and SAR publication workflows maintained in this repository, see
+For repository publication and release maintenance, see
 [release.md](./release.md).
 
-This document covers three workflows:
+## Prerequisites
 
-- install the application from AWS Serverless Application Repository (SAR)
-- deploy the application from a source checkout
-- upgrade an existing install
+Signals Relay currently publishes a shared SAR application in `us-east-1`.
+Deploy from that Region unless you are working from a source checkout and know
+which parts you need to change.
 
-## Install From SAR
-
-If the application has been shared with your AWS account or AWS Organization,
-this is the fastest way to try it. You do not need to clone the repository,
-install Rust, install `cargo-lambda`, install `uv`, or generate a local
-`samconfig.toml` for this path.
-
-The current private/shared SAR publication path is pinned to `us-east-1`, so
-use that Region when browsing or deploying the application.
-
-Each GitHub Release includes versioned CloudFormation quick-launch links for
-the no-VPC and existing-VPC deployment paths. Use those links when you want the
-CloudFormation console to pre-load the matching launch wrapper for a published
-SAR version.
-
-Before you deploy, create the shared Secrets Manager secret that both export
-modes expect at `signals-relay/secrets/collector`:
+Before deployment, create the shared Secrets Manager secret in the target
+account and Region:
 
 ```json
 {
@@ -39,43 +24,75 @@ modes expect at `signals-relay/secrets/collector`:
 }
 ```
 
-When you deploy the SAR application, these parameters matter most:
+The secret name must be `signals-relay/secrets/collector`. Both export modes
+use this same secret shape. In `direct` mode, the relay Lambda reads it at
+startup. In `collector` mode, the OpenTelemetry Lambda collector extension
+resolves it from the collector config.
 
-- `SpanLogGroupName`
-  - defaults to `aws/spans`
-- `ExportMode`
-  - `direct` is the default
-  - `collector` requires `CollectorExtensionArn`
-- `CollectorExtensionArn`
-  - required only when `ExportMode=collector`
-  - must point to an upstream OpenTelemetry Lambda collector layer ARN for your
-    Region and architecture
-- `DeploymentId`
-  - optional no-op deployment marker
-  - change it when you want CloudFormation to force a fresh Lambda rollout after
-    rotating secrets
-- `VpcId` and `SubnetIds`
-  - optional VPC settings for the relay Lambda only
+## Install From GitHub Release Quick Launch
 
-If you choose `collector` mode, the relay sends OTLP to
-`http://localhost:4318` through the upstream OpenTelemetry Lambda collector
-extension. If you choose `direct` mode, the relay exports to the OTLP endpoint
-described by the shared secret.
+Use this path when you want the CloudFormation console to pre-load the correct
+published SAR application version.
 
-When you deploy through a CloudFormation launch-link wrapper, acknowledge all
-capability prompts shown by the CloudFormation console before creating the
-stack. For this application, expect prompts for IAM resources, IAM resources
-with custom names, and `CAPABILITY_AUTO_EXPAND`. The nested SAR application
-also requires the resource-policy capability when deployed through tooling that
-asks for explicit capability names.
+1. Open the GitHub Release for the version you want to deploy.
+2. In **CloudFormation Quick Launch**, choose:
+   - **No VPC** when the relay Lambda does not need VPC networking.
+   - **Existing VPC** when the relay Lambda should run in selected VPC subnets.
+3. Review the pre-loaded stack in the CloudFormation console.
+4. Set the application parameters:
+   - `SpanLogGroupName`: defaults to `aws/spans`.
+   - `ExportMode`: use `direct` unless you need the collector extension.
+   - `CollectorExtensionArn`: required only when `ExportMode=collector`.
+   - `DeploymentId`: optional marker for forcing fresh Lambda environments.
+   - `VpcId` and `SubnetIds`: shown only by the VPC launch template.
+5. Acknowledge the capability prompts and create the stack.
 
-### Deploy From Another SAM Template
+The quick-launch templates are versioned release artifacts. They create a
+parent CloudFormation stack that deploys the published SAR application as a
+nested application. The target account must already be allowed to deploy that
+SAR application version.
 
-If you want to compose the shared SAR application into a larger SAM or
-CloudFormation stack, use `AWS::Serverless::Application`:
+## Install From SAR
 
-Replace the placeholder application ARN and version with the values published
-for the release you want to deploy.
+Use this path when you prefer the AWS Serverless Application Repository console
+or when you want to deploy the shared app directly from SAR.
+
+1. Open the `signals-relay` SAR application in `us-east-1`. The target account
+   must be allowed to deploy the shared application.
+2. Choose the published semantic version you want to deploy.
+3. Configure the same parameters described in the quick-launch section.
+4. Acknowledge the required CloudFormation capabilities and deploy.
+
+If you choose `collector` mode, use an upstream OpenTelemetry Lambda collector
+layer ARN that matches your Region and architecture. In `direct` mode, the
+relay exports to the OTLP endpoint from the shared secret without the collector
+extension.
+
+## Required CloudFormation Capabilities
+
+When you deploy through the CloudFormation console, expect prompts for:
+
+- IAM resources
+- IAM resources with custom names
+- `CAPABILITY_AUTO_EXPAND`
+
+When you deploy through tooling that names capabilities explicitly, include:
+
+```text
+CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_RESOURCE_POLICY CAPABILITY_AUTO_EXPAND
+```
+
+`CAPABILITY_AUTO_EXPAND` is required because the launch wrappers and nested SAR
+application use the SAM transform. The IAM and resource-policy capabilities are
+required by resources created by the child application.
+
+## Deploy From Another SAM Template
+
+Use `AWS::Serverless::Application` when you want to compose Signals Relay into
+a larger SAM or CloudFormation stack.
+
+Replace the placeholder application ARN and semantic version with values from
+the release you want to deploy.
 
 ```yaml
 AWSTemplateFormatVersion: "2010-09-09"
@@ -97,13 +114,7 @@ Outputs:
     Value: !GetAtt SignalsRelay.Outputs.ProcessorRelayFunctionArn
 ```
 
-Add `CollectorExtensionArn` when `ExportMode=collector`. Optional settings such
-as `DeploymentId`, `VpcId`, and `SubnetIds` can be passed the same way. Keep
-the parent stack in `us-east-1` so it can reach the currently shared SAR app.
-
-When you deploy a parent SAM template that embeds `signals-relay`, acknowledge
-the nested application plus the child app's IAM, named-IAM, and resource-policy
-requirements:
+Deploy the parent stack with the required capabilities:
 
 ```bash
 sam deploy \
@@ -111,15 +122,14 @@ sam deploy \
   --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_RESOURCE_POLICY CAPABILITY_AUTO_EXPAND
 ```
 
-The nested app's sharing rules still apply to the parent stack. If the
-`signals-relay` SAR app has only been shared with your AWS account or AWS
-Organization, the parent stack can only be deployed by an account that already
-has permission to deploy the child application.
+Add `CollectorExtensionArn` when `ExportMode=collector`. Pass optional settings
+such as `DeploymentId`, `VpcId`, and `SubnetIds` the same way. Keep the parent
+stack in `us-east-1` for the current shared SAR publication path.
 
-### Deploy From AWS CDK
+## Deploy From AWS CDK
 
 AWS CDK can synthesize the same nested SAR pattern by using the SAM L1
-construct:
+construct.
 
 ```ts
 import * as cdk from 'aws-cdk-lib';
@@ -151,17 +161,14 @@ export class SignalsRelayStack extends cdk.Stack {
 }
 ```
 
-If you need `collector` mode, add `CollectorExtensionArn` to the `parameters`
-map. Use the same approach for optional `DeploymentId`, `VpcId`, and
-comma-separated `SubnetIds` values.
+Add `CollectorExtensionArn` for collector mode. Pass `SubnetIds` as the
+comma-separated string expected by the nested stack parameter when you deploy
+the SAR application directly from CDK.
 
-### Deploy From Terraform
+## Deploy From Terraform
 
-The Terraform AWS provider has native SAR resources and data sources, so you
-can deploy the application without wrapping your own CloudFormation stack:
-
-Replace the placeholder application ARN and version defaults with the values
-published for the release you want to deploy.
+The Terraform AWS provider can deploy the SAR application without a custom
+CloudFormation wrapper.
 
 ```hcl
 variable "signals_relay_application_id" {
@@ -200,16 +207,15 @@ output "relay_function_arn" {
 }
 ```
 
-For `collector` mode, add `CollectorExtensionArn` to the `parameters` map. If
-you pass VPC settings, `SubnetIds` should be provided as the comma-separated
-string form expected by the nested stack parameter.
+For collector mode, add `CollectorExtensionArn` to `parameters`. If you pass
+VPC settings directly to the SAR stack, provide `SubnetIds` as a
+comma-separated string.
 
-## Install From Source
+## Deploy From Source
 
 Use this path when you want to inspect, modify, or test the repository before
-deploying it. This path is more operationally involved than the SAR install
-path because it uses the local SAM/bootstrap tooling and also prepares the local
-`public_publish` profile used for SAR publication.
+deploying it. Source deployment requires more local tooling than the SAR and
+quick-launch paths.
 
 Local source installs assume:
 
@@ -218,9 +224,9 @@ Local source installs assume:
 - `cargo-lambda` on your `PATH`
 - `uv`
 - AWS SAM CLI
-- AWS credentials for the deploy and publish roles you want to use
+- AWS credentials for the target deployment account and Region
 
-For local installs from source:
+Generate local SAM configuration:
 
 ```bash
 export SIGNALS_RELAY_MONITORING_PROFILE="your-deploy-profile"
@@ -228,42 +234,36 @@ export SIGNALS_RELAY_DEPLOYMENT_ID="replace-me"
 export SIGNALS_RELAY_PUBLIC_PROFILE="your-publish-profile"
 export SIGNALS_RELAY_PUBLIC_SAR_BUCKET="your-sar-artifacts-bucket"
 uv run ./scripts/init_samconfig.py
+```
+
+Build and deploy direct mode:
+
+```bash
 sam build --template-file template.yaml
 sam deploy --stack-name signals-relay
 ```
 
-These variables describe two logical roles. `SIGNALS_RELAY_MONITORING_PROFILE`
-is the AWS profile for deploying and operating the relay stack. The
-`SIGNALS_RELAY_PUBLIC_PROFILE` and `SIGNALS_RELAY_PUBLIC_SAR_BUCKET` values are
-for the `public_publish` configuration used to package and publish the app to
-SAR. Some teams keep deployment and publication in separate AWS accounts, but
-that split is optional. If the same account handles both duties in your setup,
-use the same AWS profile for both variables and point the SAR artifacts bucket
-at that account.
-
-The generator renders the ignored local `samconfig.toml` from the checked-in
-`samconfig.example.toml` template. The script includes inline PEP 723 metadata,
-so `uv run` enforces the Python `3.11`+ requirement. Set
-`SIGNALS_RELAY_PUBLIC_PROFILE` and `SIGNALS_RELAY_PUBLIC_SAR_BUCKET` before
-running it, because the generator writes the `public_publish` config too and
-fails instead of emitting placeholder publication values. Set
-`SIGNALS_RELAY_REGION` when the local deployment should target a Region other
-than `us-east-1`. The generated `default` and `collector` deploy profiles
-inherit that value, but the `public_publish` config intentionally stays pinned
-to `us-east-1` for the current SAR publication path.
-
-For collector mode:
+Deploy collector mode:
 
 ```bash
 sam build --template-file template.yaml
 sam deploy --config-env collector --stack-name signals-relay
 ```
 
-Collector mode requires `CollectorExtensionArn` from the upstream
-`open-telemetry/opentelemetry-lambda` release set.
+The generator renders the ignored local `samconfig.toml` from
+`samconfig.example.toml`. Set `SIGNALS_RELAY_REGION` when local deployment
+should target a Region other than `us-east-1`. The generated `default` and
+`collector` profiles inherit that Region, while `public_publish` remains pinned
+to `us-east-1` for the current SAR publication path.
 
 ## Upgrade An Existing Install
 
-If you installed from SAR, deploy the newer SAR application version to the same
-stack. If you installed from source, pull the newer tag or release artifact and
-re-run `sam build` and `sam deploy` with the same stack name.
+- GitHub Release quick launch: open the newer release and launch the same
+  deployment path against the existing stack name.
+- SAR console: update the existing stack to the newer SAR semantic version.
+- IaC parent stack: update `SemanticVersion` in the parent template and deploy.
+- Source deployment: pull the newer tag or branch, then run `sam build` and
+  `sam deploy` with the same stack name.
+
+Bump `DeploymentId` when you need CloudFormation to force fresh Lambda
+execution environments, for example after rotating the shared OTLP secret.
