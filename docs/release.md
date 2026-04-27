@@ -68,55 +68,53 @@ tag-push release path keeps the safe default and publishes to the account only.
 
 The `CFN_ARTIFACT_BUCKET` variable points at the separately managed S3
 distribution bucket for CloudFormation launch-template artifacts. Keep this
-bucket in `us-east-1`, matching the current single-Region release path and the
-Lambda deployment package requirement that S3 code artifacts live in the same
-Region as the function. The release workflow uploads those artifacts under an
-immutable versioned prefix:
+bucket in `us-east-1`, matching the current single-Region release path. The
+release workflow uploads those artifacts under an immutable versioned prefix:
 
 ```text
 signals-relay/cloudformation/releases/<version>/
 ```
 
-The packaged SAM child template is uploaded to:
-
-```text
-signals-relay/cloudformation/releases/<version>/packaged.yaml
-```
-
-Lambda and layer artifacts referenced by that child template are uploaded below:
-
-```text
-signals-relay/cloudformation/releases/<version>/artifacts/
-```
-
-The parent launch templates are rendered at release time so their nested stack
-`TemplateURL` points at the immutable packaged SAM child template:
+The CloudFormation distribution bucket contains only the small launch wrappers
+and their manifest:
 
 ```text
 signals-relay/cloudformation/releases/<version>/launch-no-vpc.yaml
 signals-relay/cloudformation/releases/<version>/launch-vpc.yaml
+signals-relay/cloudformation/releases/<version>/manifest.json
 ```
+
+The Lambda and layer artifacts stay on the SAR publication path through
+`SAR_ARTIFACT_BUCKET`; the CloudFormation bucket does not receive a duplicate
+packaged SAM child template or duplicate code artifacts. The parent launch
+templates are rendered after `sam publish` so their nested SAR application
+resource points at the published `ApplicationId` and `SemanticVersion`.
 
 The no-VPC launch template exposes only the common application parameters. The
 VPC launch template exposes `VpcId` as `AWS::EC2::VPC::Id` and `SubnetIds` as
 `List<AWS::EC2::Subnet::Id>` so the CloudFormation console can offer account
-and Region-aware pickers. It passes those selections to the packaged SAM child
-template through an `AWS::CloudFormation::Stack` resource.
+and Region-aware pickers. It passes those selections to the published SAR child
+application through an `AWS::Serverless::Application` resource.
 
 The release workflow records the S3 URI, S3 HTTPS template URL, and
 CloudFormation quick-create URL for the default no-VPC launch template in
 `release/<version>/cloudformation/manifest.json`. The manifest also includes
-the packaged SAM child template URL and separate no-VPC and VPC launch-template
-URLs. Public access, bucket policy, request controls, and billing alarms for
-this distribution bucket are managed outside this repository.
+the SAR `ApplicationId`, the SAR semantic version, and separate no-VPC and VPC
+launch-template URLs. Public access, bucket policy, request controls, and
+billing alarms for this distribution bucket are managed outside this
+repository.
 
 The role assumed through `AWS_ROLE_TO_ASSUME` must be able to call
-`s3:GetBucketLocation` on `CFN_ARTIFACT_BUCKET`; the workflow uses that check to
-fail early if the CloudFormation distribution bucket is not in `us-east-1`.
+`s3:GetBucketLocation` and `s3:PutObject` on `CFN_ARTIFACT_BUCKET`; the workflow
+uses the location check to fail early if the CloudFormation distribution bucket
+is not in `us-east-1`. It must also allow `serverlessrepo:GetApplication` so the
+workflow can verify the newly published SAR version before writing launch links.
 
-CloudFormation launch installs create a parent stack that creates the packaged
-SAM app as a nested child stack. Because the child template contains the SAM
-transform and IAM resources, operators should expect to acknowledge
+CloudFormation launch installs create a parent stack that creates the published
+SAR app as a nested application. The target account must be allowed to deploy
+that SAR application, either because it is shared privately or public. Because
+the parent wrapper and child application use the SAM transform and the child app
+contains IAM resources, operators should expect to acknowledge
 `CAPABILITY_AUTO_EXPAND` and IAM capabilities during stack creation.
 
 ## Manual SAR Publish
@@ -203,9 +201,9 @@ ready.
 - When `share_scope=organization` is selected for a manual release, the
   workflow discovers the current AWS Organization ID and adds a private
   org-wide share after publish instead of making the app public.
-- The CloudFormation packaged child template and parent launch templates are
-  additional versioned release artifacts for future launch-link workflows. They
-  do not replace SAR and do not introduce a mutable `latest` launch URL.
+- The SAR-backed CloudFormation parent launch templates are additional
+  versioned release artifacts for launch-link workflows. They do not replace SAR
+  and do not introduce a mutable `latest` launch URL.
 
 This document does not claim that the application is already public in SAR. It
 describes the publication path and the install paths for either shared SAR

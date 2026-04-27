@@ -1,8 +1,9 @@
 AWSTemplateFormatVersion: "2010-09-09"
+Transform: "AWS::Serverless-2016-10-31"
 Description: Signals Relay launch wrapper for deployments without VPC configuration
 
-# This source template is rendered by the release workflow. The TemplateURL
-# placeholder below is replaced with the versioned packaged SAM child template.
+# This source template is rendered by the release workflow. The ApplicationId
+# and SemanticVersion placeholders below are replaced with the published SAR app.
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -63,9 +64,11 @@ Rules:
 
 Resources:
   SignalsRelay:
-    Type: AWS::CloudFormation::Stack
+    Type: AWS::Serverless::Application
     Properties:
-      TemplateURL: https://s3.us-east-1.amazonaws.com/signals-relay-placeholder-bucket/signals-relay/cloudformation/releases/0.0.0/packaged.yaml
+      Location:
+        ApplicationId: arn:aws:serverlessrepo:us-east-1:000000000000:applications/signals-relay
+        SemanticVersion: "0.0.0"
       Parameters:
         SpanLogGroupName: !Ref SpanLogGroupName
         ExportMode: !Ref ExportMode

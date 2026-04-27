@@ -256,6 +256,41 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
 
+      - name: Validate CloudFormation artifact bucket
+        shell: bash
+        env:
+          CFN_ARTIFACT_BUCKET: ${{ inputs.cfn_artifact_bucket }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${CFN_ARTIFACT_BUCKET:-}" ]]; then
+            echo "::error::inputs.cfn_artifact_bucket is required. Configure the CFN_ARTIFACT_BUCKET repository variable in the calling release workflow."
+            exit 1
+          fi
+
+          bucket_location="$(
+            aws s3api get-bucket-location \
+              --bucket "$CFN_ARTIFACT_BUCKET" \
+              --query LocationConstraint \
+              --output text
+          )"
+          case "$bucket_location" in
+            None|null|"")
+              bucket_region="us-east-1"
+              ;;
+            EU)
+              bucket_region="eu-west-1"
+              ;;
+            *)
+              bucket_region="$bucket_location"
+              ;;
+          esac
+
+          if [[ "$bucket_region" != "$AWS_REGION" ]]; then
+            echo "::error::CFN_ARTIFACT_BUCKET must be in $AWS_REGION, but bucket '$CFN_ARTIFACT_BUCKET' is in $bucket_region."
+            exit 1
+          fi
+
       - name: Build the SAM application
         run: sam build --template-file "${{ steps.sam_template.outputs.path }}" --beta-features
 
@@ -337,85 +372,28 @@ jobs:
           }
           EOF
 
-      - name: Package the CloudFormation launch templates
+      - name: Resolve SAR application identity
+        id: sar_application
         shell: bash
         env:
-          CFN_ARTIFACT_BUCKET: ${{ inputs.cfn_artifact_bucket }}
-          RELEASE_TAG: ${{ steps.version.outputs.tag }}
-          VERSION: ${{ steps.version.outputs.version }}
+          SAM_TEMPLATE: ${{ steps.sam_template.outputs.path }}
         run: |
           set -euo pipefail
 
-          if [[ -z "${CFN_ARTIFACT_BUCKET:-}" ]]; then
-            echo "::error::inputs.cfn_artifact_bucket is required. Configure the CFN_ARTIFACT_BUCKET repository variable in the calling release workflow."
-            exit 1
-          fi
-
-          bucket_location="$(
-            aws s3api get-bucket-location \
-              --bucket "$CFN_ARTIFACT_BUCKET" \
-              --query LocationConstraint \
-              --output text
+          app_name_raw="$(
+            sed -nE '/AWS::ServerlessRepo::Application:/,/^[^[:space:]]/ s/^[[:space:]]*Name:[[:space:]]*(.+)$/\1/p' "$SAM_TEMPLATE" | head -n1
           )"
-          case "$bucket_location" in
-            None|null|"")
-              bucket_region="us-east-1"
-              ;;
-            EU)
-              bucket_region="eu-west-1"
-              ;;
-            *)
-              bucket_region="$bucket_location"
-              ;;
-          esac
-
-          if [[ "$bucket_region" != "$AWS_REGION" ]]; then
-            echo "::error::CFN_ARTIFACT_BUCKET must be in $AWS_REGION, but bucket '$CFN_ARTIFACT_BUCKET' is in $bucket_region."
+          app_name="$(scripts/normalize-yaml-scalar.sh "$app_name_raw")"
+          if [[ -z "$app_name" ]]; then
+            echo "::error::SAM template $SAM_TEMPLATE is missing Metadata.AWS::ServerlessRepo::Application.Name"
             exit 1
           fi
 
-          artifact_dir="$RELEASE_ROOT/$VERSION/cloudformation"
-          mkdir -p "$artifact_dir"
-          packaged_template="$artifact_dir/packaged.yaml"
-          built_template=".aws-sam/build/template.yaml"
-          cfn_prefix="signals-relay/cloudformation/releases/$VERSION"
-          cfn_artifact_prefix="$cfn_prefix/artifacts"
-          application_s3_uri="s3://$CFN_ARTIFACT_BUCKET/$cfn_prefix/packaged.yaml"
+          account_id="$(aws sts get-caller-identity --query Account --output text)"
+          application_id="arn:aws:serverlessrepo:${AWS_REGION}:${account_id}:applications/${app_name}"
 
-          sam package \
-            --template-file "$built_template" \
-            --s3-bucket "$CFN_ARTIFACT_BUCKET" \
-            --s3-prefix "$cfn_artifact_prefix" \
-            --output-template-file "$packaged_template"
-
-          aws s3 cp "$packaged_template" "$application_s3_uri"
-
-          commit="$(git rev-parse HEAD)"
-          summary_file="$artifact_dir/summary.md"
-          python3 scripts/render_cfn_launch_templates.py \
-            --source-dir cloudformation \
-            --output-dir "$artifact_dir" \
-            --tag "$RELEASE_TAG" \
-            --version "$VERSION" \
-            --commit "$commit" \
-            --bucket "$CFN_ARTIFACT_BUCKET" \
-            --prefix "$cfn_prefix" \
-            --region "$AWS_REGION" \
-            --summary-file "$summary_file"
-
-          for launch_template in launch-no-vpc.yaml launch-vpc.yaml; do
-            aws s3 cp "$artifact_dir/$launch_template" "s3://$CFN_ARTIFACT_BUCKET/$cfn_prefix/$launch_template"
-          done
-
-          cat "$summary_file" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload release artifacts
-        uses: actions/upload-artifact@v6
-        with:
-          name: signals-relay-${{ steps.version.outputs.version }}
-          path: ${{ env.RELEASE_ROOT }}/${{ steps.version.outputs.version }}
-          if-no-files-found: error
-          retention-days: 14
+          echo "app_name=$app_name" >> "$GITHUB_OUTPUT"
+          echo "application_id=$application_id" >> "$GITHUB_OUTPUT"
 
       - name: Publish to Serverless Application Repository
         env:
@@ -432,18 +410,9 @@ jobs:
         if: ${{ inputs.share_scope == 'organization' }}
         shell: bash
         env:
-          SAM_TEMPLATE: ${{ steps.sam_template.outputs.path }}
+          APPLICATION_ID: ${{ steps.sar_application.outputs.application_id }}
         run: |
           set -euo pipefail
-
-          app_name_raw="$(
-            sed -nE '/AWS::ServerlessRepo::Application:/,/^[^[:space:]]/ s/^[[:space:]]*Name:[[:space:]]*(.+)$/\1/p' "$SAM_TEMPLATE" | head -n1
-          )"
-          app_name="$(scripts/normalize-yaml-scalar.sh "$app_name_raw")"
-          if [[ -z "$app_name" ]]; then
-            echo "::error::SAM template $SAM_TEMPLATE is missing Metadata.AWS::ServerlessRepo::Application.Name"
-            exit 1
-          fi
 
           cleanup() {
             local path
@@ -483,16 +452,13 @@ jobs:
             exit 1
           fi
 
-          account_id="$(aws sts get-caller-identity --query Account --output text)"
-          application_arn="arn:aws:serverlessrepo:${AWS_REGION}:${account_id}:applications/${app_name}"
-
           policy_stdout="$(mktemp)"
           policy_stderr="$(mktemp)"
           verify_stderr="$(mktemp)"
 
           if aws serverlessrepo get-application-policy \
             --region "$AWS_REGION" \
-            --application-id "$application_arn" \
+            --application-id "$APPLICATION_ID" \
             --output json >"$policy_stdout" 2>"$policy_stderr"; then
             existing_policy_json="$(cat "$policy_stdout")"
           else
@@ -500,7 +466,7 @@ jobs:
             if grep -Eq 'ApplicationPolicy.*NotFound|ResourceNotFound|NotFoundException' <<<"$policy_error"; then
               existing_policy_json='{"Statements":[]}'
             else
-              echo "::error::Failed to get existing application policy for $application_arn"
+              echo "::error::Failed to get existing application policy for $APPLICATION_ID"
               cat "$policy_stderr" >&2
               exit 1
             fi
@@ -527,7 +493,7 @@ jobs:
           for _ in 1 2 3 4 5; do
             if aws serverlessrepo put-application-policy \
               --region "$AWS_REGION" \
-              --application-id "$application_arn" \
+              --application-id "$APPLICATION_ID" \
               --statements "$merged_statements" \
               >/dev/null; then
               applied="true"
@@ -547,7 +513,7 @@ jobs:
           for _ in 1 2 3 4 5; do
             if policy_json="$(aws serverlessrepo get-application-policy \
                 --region "$AWS_REGION" \
-                --application-id "$application_arn" \
+                --application-id "$APPLICATION_ID" \
                 --output json 2>"$verify_stderr")"; then
               if jq -e --arg org_id "$normalized_org_id" '
                 any(.Statements[]?;
@@ -575,3 +541,69 @@ jobs:
             fi
             exit 1
           fi
+
+      - name: Render and upload the CloudFormation launch templates
+        shell: bash
+        env:
+          CFN_ARTIFACT_BUCKET: ${{ inputs.cfn_artifact_bucket }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          APPLICATION_ID: ${{ steps.sar_application.outputs.application_id }}
+        run: |
+          set -euo pipefail
+
+          resolved_application="false"
+          last_application_error=""
+          for _ in 1 2 3 4 5; do
+            if application_error="$(aws serverlessrepo get-application \
+                --region "$AWS_REGION" \
+                --application-id "$APPLICATION_ID" \
+                --semantic-version "$VERSION" \
+                2>&1 >/dev/null)"; then
+              resolved_application="true"
+              break
+            fi
+
+            last_application_error="$application_error"
+            sleep 5
+          done
+
+          if [[ "$resolved_application" != "true" ]]; then
+            echo "::error::Failed to verify published SAR application version $APPLICATION_ID/$VERSION before rendering launch templates."
+            if [[ -n "$last_application_error" ]]; then
+              printf '%s\n' "$last_application_error" >&2
+            fi
+            exit 1
+          fi
+
+          artifact_dir="$RELEASE_ROOT/$VERSION/cloudformation"
+          mkdir -p "$artifact_dir"
+          cfn_prefix="signals-relay/cloudformation/releases/$VERSION"
+          commit="$(git rev-parse HEAD)"
+          summary_file="$artifact_dir/summary.md"
+
+          python3 scripts/render_cfn_launch_templates.py \
+            --source-dir cloudformation \
+            --output-dir "$artifact_dir" \
+            --tag "$RELEASE_TAG" \
+            --version "$VERSION" \
+            --commit "$commit" \
+            --bucket "$CFN_ARTIFACT_BUCKET" \
+            --prefix "$cfn_prefix" \
+            --region "$AWS_REGION" \
+            --application-id "$APPLICATION_ID" \
+            --summary-file "$summary_file"
+
+          for upload_file in launch-no-vpc.yaml launch-vpc.yaml manifest.json; do
+            aws s3 cp "$artifact_dir/$upload_file" "s3://$CFN_ARTIFACT_BUCKET/$cfn_prefix/$upload_file"
+          done
+
+          cat "$summary_file" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: signals-relay-${{ steps.version.outputs.version }}
+          path: ${{ env.RELEASE_ROOT }}/${{ steps.version.outputs.version }}
+          if-no-files-found: error
+          retention-days: 14

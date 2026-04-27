@@ -54,7 +54,7 @@ Metadata:
       - sam
     HomePageUrl: https://github.com/dev7a/signals-relay
     SourceCodeUrl: https://github.com/dev7a/signals-relay
-    SemanticVersion: 0.1.0-beta.3
+    SemanticVersion: 0.1.0-beta.4
 
 Parameters:
   SpanLogGroupName:
