@@ -7,9 +7,10 @@ For repository publication and release maintenance, see
 
 ## Prerequisites
 
-Signals Relay currently publishes a shared SAR application in `us-east-1`.
-Deploy from that Region unless you are working from a source checkout and know
-which parts you need to change.
+Signals Relay currently publishes a SAR application in `us-east-1`. Deploy from
+that Region unless you are working from a source checkout and know which parts
+you need to change. The target account must be allowed to deploy the selected
+SAR version through account, organization, or public sharing.
 
 Before deployment, create the shared Secrets Manager secret in the target
 account and Region:
@@ -55,10 +56,10 @@ SAR application version.
 ## Install From SAR
 
 Use this path when you prefer the AWS Serverless Application Repository console
-or when you want to deploy the shared app directly from SAR.
+or when you want to deploy the published app directly from SAR.
 
 1. Open the `signals-relay` SAR application in `us-east-1`. The target account
-   must be allowed to deploy the shared application.
+   must be allowed to deploy the selected application version.
 2. Choose the published semantic version you want to deploy.
 3. Configure the same parameters described in the quick-launch section.
 4. Acknowledge the required CloudFormation capabilities and deploy.
@@ -124,7 +125,7 @@ sam deploy \
 
 Add `CollectorExtensionArn` when `ExportMode=collector`. Pass optional settings
 such as `DeploymentId`, `VpcId`, and `SubnetIds` the same way. Keep the parent
-stack in `us-east-1` for the current shared SAR publication path.
+stack in `us-east-1` for the current SAR publication path.
 
 ## Deploy From AWS CDK
 

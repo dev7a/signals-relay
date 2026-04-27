@@ -15,10 +15,12 @@ Application Signals spans to an OTLP backend, and you are comfortable operating
 an event-driven pipeline built from CloudWatch Logs, Lambda, Kinesis, SQS, and
 Secrets Manager.
 
-The fastest evaluation path is the shared AWS Serverless Application Repository
-(SAR) application or the versioned CloudFormation quick-launch links published
-with each GitHub Release. You only need a source checkout when you want to
-inspect, modify, or publish the application yourself.
+The fastest evaluation path is the AWS Serverless Application Repository (SAR)
+application or the versioned CloudFormation quick-launch links published with
+each GitHub Release. The target account must be allowed to deploy the selected
+SAR version through account, organization, or public sharing. You only need a
+source checkout when you want to inspect, modify, or publish the application
+yourself.
 
 ## Fastest Install Path
 
@@ -42,7 +44,7 @@ inspect, modify, or publish the application yourself.
 4. In the CloudFormation console, acknowledge the prompts for IAM resources,
    IAM resources with custom names, and `CAPABILITY_AUTO_EXPAND`.
 
-The current shared SAR publication path is pinned to `us-east-1`. Full install
+The current SAR publication path is pinned to `us-east-1`. Full install
 instructions, IaC examples, source deployment, and upgrade guidance live in
 [docs/install.md](./docs/install.md).
 
