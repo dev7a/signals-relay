@@ -1,67 +1,57 @@
 # Long Poller With SQS For Delayed Work
 
 > [!NOTE]
-> This document captures an alternative considered during design. It is retained for tradeoff history and comparison, not as the recommended deployment path for this repository.
+> This is an alternative design note. It is retained for tradeoff history and
+> comparison, not as the recommended deployment path.
 
-## Summary
+## What It Is
+
+This alternative replaces the push subscription path with a pull loop managed
+by Lambda and SQS.
 
 Flow:
 
-1. An optional heartbeat Lambda, invoked on a schedule, checks whether the queue is idle and starts the poller chain if needed
-2. A poller Lambda reads pages from CloudWatch Logs APIs
-3. The poller processes the current page
-4. If more work is available, the poller posts follow-up work to SQS with the next cursor and delay
-5. If there is no continuation token, the poller can schedule a quiet-period wake-up, for example 30 seconds later
-6. The poller adapts delay based on recent page fullness or queue state
+1. A scheduled heartbeat Lambda starts or resumes the poller chain.
+2. A poller Lambda reads pages from CloudWatch Logs APIs.
+3. The poller processes the current page and exports or buffers spans.
+4. If more work is available, it sends follow-up work to SQS with the next
+   cursor and a delay.
+5. If no work is available, it schedules a quiet-period wake-up.
 
-This model replaces the push subscription path with a pull loop managed by Lambda and SQS.
+## Why It Was Considered
+
+The long-poller model gives the application explicit control over CloudWatch
+Logs page size, polling cadence, and delayed follow-up work. It can smooth out
+small push batches by choosing when and how much to poll.
 
 ## Strengths
 
-- Strong control over page size, polling cadence, and aggregation.
-- The system can adapt polling frequency during busy and quiet periods.
-- Batching can be much larger than direct CloudWatch subscription delivery.
-- SQS provides a clean handoff for delayed follow-up work.
-- A single active poller chain is conceptually simple if cursor state is carried in the SQS payload.
+- Strong control over page size and polling cadence.
+- Adaptive behavior during busy and quiet periods.
+- Potentially larger batches than direct CloudWatch Logs subscription delivery.
+- SQS provides a simple delayed handoff between poller invocations.
 
 ## Weaknesses
 
-- This creates a custom control plane around CloudWatch Logs pagination and self-scheduling.
-- `nextToken` may be sufficient for a short-delay single-chain design, but it is not enough for every recovery scenario by itself.
-- Duplicate handling and cursor correctness become application responsibilities.
-- Even a single-chain design must handle overlap from SQS at-least-once delivery, visibility timeout expiry, or heartbeat races.
-- Lambda recursion safeguards and SQS delay limits still shape the design.
-- This is less event-native than the subscription or Kinesis paths.
+- Introduces a custom control plane around CloudWatch Logs pagination.
+- Cursor correctness, duplicate handling, and recovery become application
+  responsibilities.
+- SQS at-least-once delivery and visibility timeouts can create overlapping
+  poller work.
+- Lambda recursion safeguards and SQS delay limits shape the design.
+- It is less event-native than the subscription and Kinesis paths.
 
-## Cost Considerations
+## Historical Fit
 
-Main billed components:
+This approach fit the case where explicit control over polling cadence mattered
+more than keeping the pipeline event-driven.
 
-- poller Lambda duration
-- SQS sends and receives
-- CloudWatch Logs API requests
-- checkpoint storage, only if a separate durable cursor store is required
-- downstream collector ingest
+## Questions That Drove The Decision
 
-This model can reduce:
-
-- collector request fan-out from tiny push batches
-- dependence on CloudWatch subscription delivery shape
-
-This model can increase:
-
-- Lambda runtime spent waiting on and processing CloudWatch Logs pages
-- application complexity around cursor handling, retries, and optional checkpoint persistence
-
-Actual costs will depend on traffic patterns and configuration.
-
-## Best Fit
-
-Use this approach when explicit control over polling cadence matters more than keeping a push-based event pipeline.
-
-## Open Questions
-
-- What documented CloudWatch Logs API limits matter most here, including page size, rate limits, and token lifetime?
-- Is SQS payload state enough for recovery, or is a separate durable checkpoint needed?
-- Can a single active poller keep up, and how should the heartbeat bootstrap logic recover if the chain goes idle?
-- Is the extra control worth the control-plane complexity compared with the Kinesis partitioner path?
+- Which CloudWatch Logs API limits dominate page size, rate limits, and token
+  lifetime?
+- Is SQS payload state enough for recovery, or is a durable checkpoint store
+  required?
+- Can a single active poller keep up with expected `aws/spans` volume?
+- Is the control-plane complexity worth it compared with the current
+  partitioner and Kinesis design?

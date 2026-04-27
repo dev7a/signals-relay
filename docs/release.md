@@ -1,85 +1,86 @@
 # Release Guide
 
-Use this document when you maintain this repository and want to publish a new
+Use this guide when you maintain this repository and need to publish a
 coordinated release.
 
-For SAR installs, source deployments, and upgrade guidance, see
-[install.md](./install.md).
+For operator install paths, quick-launch deployment, IaC examples, and upgrade
+guidance, see [install.md](./install.md).
 
-## What Gets Released
+## Release Prerequisites
 
-Each `v<version>` release packages both deliverables from the same repository
-state:
+The release workflow publishes from one coordinated repository version. Before
+starting a release, make sure:
 
-- the `signals-relay-core` crate artifact
-- the deployable SAM application defined in [`template.yaml`](../template.yaml)
+- `scripts/set-version.sh <semver>` has updated `Cargo.toml`, `Cargo.lock`, and
+  `template.yaml`.
+- The Rust workspace package versions match the SAM
+  `AWS::ServerlessRepo::Application.SemanticVersion`.
+- The target tag `v<semver>` does not already exist.
+- `AWS_ROLE_TO_ASSUME` is configured as a GitHub Actions secret for OIDC.
+- `SAR_ARTIFACT_BUCKET` is configured as a GitHub Actions secret for SAM
+  package uploads.
+- `CFN_ARTIFACT_BUCKET` is configured as a GitHub Actions repository variable
+  for CloudFormation launch artifacts.
 
-The release workflow packages the crate artifact for GitHub-based consumers and
-publishes the SAM application through AWS SAM and the Serverless Application
-Repository path. It also emits versioned CloudFormation artifacts for
-launch-link style installs, but SAR remains the primary installation and
-publication path.
+The current release path is single-Region and pinned to `us-east-1`.
 
-## Publish A Release
+The assumed release role must be able to build, package, publish, share, and
+verify one release in that Region. At minimum, the workflow exercises:
 
-Releases are driven from the coordinated repository version and published from a
-matching Git tag.
+- `sts:GetCallerIdentity`
+- S3 read/write access for SAR package uploads through `SAR_ARTIFACT_BUCKET`
+- `s3:GetBucketLocation` and S3 write access for `CFN_ARTIFACT_BUCKET`
+- Serverless Application Repository publish and readback access, including
+  `serverlessrepo:GetApplication`
+- for `share_scope=organization`, `serverlessrepo:GetApplicationPolicy`,
+  `serverlessrepo:PutApplicationPolicy`, and
+  `organizations:DescribeOrganization`
 
-1. Run [`scripts/set-version.sh`](../scripts/set-version.sh) with the target
-   version.
-2. Run the `release` workflow manually from the branch you want to release.
-3. Choose `share_scope=account` to keep the SAR app private to the publisher
-   account, or `share_scope=organization` to add a private org-wide share after
-   publish.
-4. The workflow derives the tag as `v<version>`, fails if that tag already
-   exists, and publishes the release from the checked-out commit first.
-5. Only after the publish job succeeds does the workflow create and push the
-   matching Git tag.
-6. After the tag exists, the workflow creates or updates the matching GitHub
-   Release with SAR details, CloudFormation quick-launch links, and the
-   versioned launch-template assets.
-7. If you push a matching tag outside the workflow, the same publish job still
-   runs on the `push.tags` trigger with account-only sharing.
+## Manual Workflow Dispatch
 
-Examples:
+Run the `release` workflow manually from the branch or commit you want to
+publish.
 
-- `0.1.0` becomes `v0.1.0`
-- `0.1.0-beta.1` becomes `v0.1.0-beta.1`
+1. Choose `share_scope=account` to keep the SAR app private to the publisher
+   account.
+2. Choose `share_scope=organization` to add a private AWS Organization share
+   after `sam publish` succeeds.
+3. The workflow derives the tag as `v<version>`.
+4. The workflow validates that Rust package versions and SAM `SemanticVersion`
+   match the tag.
+5. The workflow publishes SAR before creating the Git tag.
+6. After publish succeeds, the workflow creates the tag and GitHub Release.
 
-The tag value remains the effective semantic version for the publish job,
-because:
+For organization sharing, the assumed AWS role must allow
+`organizations:DescribeOrganization` and SAR application-policy updates. The
+workflow discovers the current Organization ID at runtime and applies a SAR
+application policy for that Organization.
 
-- the Rust workspace packages are expected to match that version directly
-- the SAM template `SemanticVersion` is expected to match it too
-- the workflow passes the extracted version to `sam publish --semantic-version`
+## Tag Push Behavior
 
-The workflow expects:
+Pushing a matching `v*` tag also runs the publish workflow. This path uses
+`share_scope=account`.
 
-- `AWS_ROLE_TO_ASSUME` for GitHub Actions OIDC authentication
-- `SAR_ARTIFACT_BUCKET` for packaged template and asset uploads during release
-- `CFN_ARTIFACT_BUCKET` as a GitHub Actions repository variable for versioned
-  CloudFormation launch-template artifacts
+Prefer manual workflow dispatch for normal releases because it publishes first
+and creates the tag only after the publish job succeeds. That avoids creating a
+release tag for a version that did not publish.
 
-When you run the `release` workflow manually, GitHub presents a `share_scope`
-choice with `account` and `organization` values. `account` keeps the published
-SAR app private to the publisher account. `organization` follows `sam publish`
-with `serverlessrepo put-application-policy`, discovers the current AWS
-Organization ID at runtime, and shares the app privately across that
-organization. For that org-wide path to work, the role assumed via
-`AWS_ROLE_TO_ASSUME` must allow `organizations:DescribeOrganization`. The
-tag-push release path keeps the safe default and publishes to the account only.
+## Artifact Outputs
 
-The `CFN_ARTIFACT_BUCKET` variable points at the separately managed S3
-distribution bucket for CloudFormation launch-template artifacts. Keep this
-bucket in `us-east-1`, matching the current single-Region release path. The
-release workflow uploads those artifacts under an immutable versioned prefix:
+Each release produces these outputs from the same repository state:
 
-```text
-signals-relay/cloudformation/releases/<version>/
-```
+- `signals-relay-core` crate artifact attached to the GitHub Release
+- SAM application published through SAR
+- SAR package artifacts uploaded through `SAR_ARTIFACT_BUCKET`
+- CloudFormation launch wrappers uploaded through `CFN_ARTIFACT_BUCKET`
+- CloudFormation manifest attached to the GitHub Release
+- GitHub Release notes generated from the CloudFormation manifest
 
-The CloudFormation distribution bucket contains only the small launch wrappers
-and their manifest:
+SAR remains the canonical publish path. The CloudFormation launch templates are
+small parent wrappers that deploy the published SAR application through
+`AWS::Serverless::Application`.
+
+The CloudFormation distribution bucket receives only versioned launch artifacts:
 
 ```text
 signals-relay/cloudformation/releases/<version>/launch-no-vpc.yaml
@@ -87,144 +88,101 @@ signals-relay/cloudformation/releases/<version>/launch-vpc.yaml
 signals-relay/cloudformation/releases/<version>/manifest.json
 ```
 
-The Lambda and layer artifacts stay on the SAR publication path through
-`SAR_ARTIFACT_BUCKET`; the CloudFormation bucket does not receive a duplicate
-packaged SAM child template or duplicate code artifacts. The parent launch
-templates are rendered after `sam publish` so their nested SAR application
-resource points at the published `ApplicationId` and `SemanticVersion`.
+The workflow does not publish a mutable `latest` CloudFormation URL. Public
+access, bucket policy, request controls, and billing alarms for the
+CloudFormation distribution bucket are managed outside this repository.
 
-The no-VPC launch template exposes only the common application parameters. The
-VPC launch template exposes `VpcId` as `AWS::EC2::VPC::Id` and `SubnetIds` as
-`List<AWS::EC2::Subnet::Id>` so the CloudFormation console can offer account
-and Region-aware pickers. It passes those selections to the published SAR child
-application through an `AWS::Serverless::Application` resource.
+## GitHub Release Notes
 
-The release workflow records the S3 URI, S3 HTTPS template URL, and
-CloudFormation quick-create URL for the default no-VPC launch template in
-`release/<version>/cloudformation/manifest.json`. The manifest also includes
-the SAR `ApplicationId`, the SAR semantic version, and separate no-VPC and VPC
-launch-template URLs. Public access, bucket policy, request controls, and
-billing alarms for this distribution bucket are managed outside this
-repository.
+After SAR publish and CloudFormation artifact upload succeed, the workflow
+creates or updates the GitHub Release for the tag.
 
-After the publish job succeeds, the release workflow uses that manifest to
-publish the GitHub Release notes for the tag. Those notes include modern SVG
-quick-launch badge links that point at the immutable release tag, plus links to
-the no-VPC and VPC template URLs. The workflow also attaches the manifest, both
-launch templates, and the `signals-relay-core` crate artifact to the GitHub
-Release.
+The generated notes include:
 
-The role assumed through `AWS_ROLE_TO_ASSUME` must be able to call
-`s3:GetBucketLocation` and `s3:PutObject` on `CFN_ARTIFACT_BUCKET`; the workflow
-uses the location check to fail early if the CloudFormation distribution bucket
-is not in `us-east-1`. It must also allow `serverlessrepo:GetApplication` so the
-workflow can verify the newly published SAR version before writing launch links.
+- SAR application ID
+- SAR semantic version
+- source commit
+- CloudFormation quick-launch badge links for no-VPC and VPC deployment paths
+- versioned template URLs
+- release artifact references
+
+The badge image is a checked-in SVG referenced through the release tag with a
+GitHub `blob/<tag>/...svg?raw=1` URL. The launch targets themselves point to
+the versioned CloudFormation quick-create URLs in the manifest.
+
+## SAR Sharing Behavior
+
+`share_scope=account` publishes the SAR app without adding an organization
+policy. The application remains deployable only where the publisher account's
+SAR sharing model allows it.
+
+`share_scope=organization` follows `sam publish` with
+`serverlessrepo put-application-policy`. The workflow verifies that the policy
+contains the expected Organization ID before continuing to CloudFormation
+artifact generation.
+
+CloudFormation launch installs still require the target account to be allowed
+to deploy the SAR application version. The launch wrappers do not bypass SAR
+sharing.
+
+## Required Capabilities
 
 CloudFormation launch installs create a parent stack that creates the published
-SAR app as a nested application. The target account must be allowed to deploy
-that SAR application, either because it is shared privately or public. Because
-the parent wrapper and child application use the SAM transform and the child app
-contains IAM resources, operators should expect to acknowledge
-`CAPABILITY_AUTO_EXPAND` plus the IAM capability prompts during stack creation.
-In the CloudFormation console launch flow, this appears as acknowledgements for
-IAM resources, IAM resources with custom names, and `CAPABILITY_AUTO_EXPAND`.
-Tooling that names capabilities explicitly should include
-`CAPABILITY_IAM`, `CAPABILITY_NAMED_IAM`, `CAPABILITY_RESOURCE_POLICY`, and
-`CAPABILITY_AUTO_EXPAND`.
+SAR app as a nested application. Operators should expect prompts for IAM
+resources, IAM resources with custom names, and `CAPABILITY_AUTO_EXPAND`.
+
+Tooling that names capabilities explicitly should include:
+
+```text
+CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_RESOURCE_POLICY CAPABILITY_AUTO_EXPAND
+```
+
+## Failure And Rerun Notes
+
+The workflow fails fast when:
+
+- the requested tag already exists
+- Rust package versions do not match the release tag
+- SAM `SemanticVersion` does not match the release tag
+- `CFN_ARTIFACT_BUCKET` is missing or is not in `us-east-1`
+- the newly published SAR application version cannot be read back
+
+If the workflow fails before `sam publish`, fix the issue and rerun the same
+version. If it fails after SAR publish, inspect SAR, the Git tag, S3 artifacts,
+and the GitHub Release before rerunning. SAR semantic versions are immutable, so
+a partial post-publish failure may require a new version or a targeted manual
+repair rather than a blind rerun.
 
 ## Manual SAR Publish
 
-For manual publication from a workstation, configure a dedicated
-`public_publish` environment in `samconfig.toml` that targets the SAR
-publishing profile and artifacts bucket you want to use.
+Manual publication from a workstation is supported for maintainers who have a
+local `public_publish` SAM environment.
 
-Before publishing manually, set the coordinated repository version with
-[`scripts/set-version.sh`](../scripts/set-version.sh). The script updates
-[`Cargo.toml`](../Cargo.toml) and [`template.yaml`](../template.yaml), then asks
-Cargo to refresh the workspace package entries in
-[`Cargo.lock`](../Cargo.lock).
+1. Run `scripts/set-version.sh <semver>`.
+2. Set the same version for the publish command:
 
-With that environment in place, the CLI flow is:
+   ```bash
+   VERSION="<semver>"
+   ```
 
-```bash
-VERSION="$(
-  python3 - <<'PY'
-import json
-import subprocess
+3. Build with the public publish configuration:
 
-metadata = json.loads(
-    subprocess.check_output(
-        ["cargo", "metadata", "--no-deps", "--format-version", "1"],
-        text=True,
-    )
-)
+   ```bash
+   sam build --config-env public_publish --template-file template.yaml
+   ```
 
-workspace_members = set(metadata["workspace_members"])
-versions = {
-    package["version"]
-    for package in metadata["packages"]
-    if package["id"] in workspace_members
-}
+4. Package the application:
 
-if len(versions) != 1:
-    raise SystemExit(f"expected one coordinated workspace version, found: {sorted(versions)}")
+   ```bash
+   sam package --config-env public_publish
+   ```
 
-print(next(iter(versions)))
-PY
-)"
+5. Publish with the same semantic version:
 
-sam build --config-env public_publish --template-file template.yaml
-sam package --config-env public_publish
-sam publish --config-env public_publish --semantic-version "$VERSION"
-```
+   ```bash
+   sam publish --config-env public_publish --semantic-version "$VERSION"
+   ```
 
-The `package` step writes a packaged template to
-`.aws-sam/publish-public.yaml`. The `VERSION` shell variable keeps `sam publish`
-aligned with the repository version, and you can override `--s3-prefix` if you
-want a version-specific upload path instead of the default manual prefix.
-
-
-Bump `DeploymentId` if you need to force Lambda to refresh execution
-environments after a secret rotation.
-
-## Coordinated Release Policy
-
-The repository intentionally republishes both deliverables together, even if a
-given change only affects one of them.
-
-- A core-only change still produces a fresh SAM app release.
-- An app-only change still produces a fresh `signals-relay-core` crate
-  artifact.
-
-That keeps the release process simple: one tag, one workflow, one repository
-version.
-
-The example SAM config intentionally does not mirror the release version in
-stack tags. The coordinated release version lives in the repository manifests
-and release tag, not in deploy-time tagging defaults.
-
-## SAR Publication Direction
-
-The repository is structured so the app can be published to AWS Serverless
-Application Repository when the desired publication and sharing configuration is
-ready.
-
-- `template.yaml` includes `AWS::ServerlessRepo::Application` metadata.
-- `sam publish` uses the packaged template emitted by the release workflow.
-- The release workflow keeps the semantic version explicit so SAR versions and
-  Git tags stay aligned.
-- When `share_scope=organization` is selected for a manual release, the
-  workflow discovers the current AWS Organization ID and adds a private
-  org-wide share after publish instead of making the app public.
-- The SAR-backed CloudFormation parent launch templates are additional
-  versioned release artifacts for launch-link workflows. They do not replace SAR
-  and do not introduce a mutable `latest` launch URL.
-- GitHub Release notes are generated from the CloudFormation manifest after the
-  SAR app has been published and the versioned launch templates have been
-  uploaded.
-
-This document does not claim that the application is already public in SAR. It
-describes the publication path and the install paths for either shared SAR
-consumers or source-based operators. Validate the org-shared install path from
-another member account in `us-east-1` before introducing any future public
-sharing step.
+The automated GitHub Actions release remains the preferred path because it also
+validates version parity, creates the tag after successful publish, uploads the
+CloudFormation launch artifacts, and creates the GitHub Release.
