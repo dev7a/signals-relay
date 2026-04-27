@@ -81,8 +81,6 @@ def main() -> None:
     )
 
     lines = [
-        f"# Signals Relay {tag}",
-        "",
         (
             "This release publishes the Signals Relay SAR application and versioned "
             "CloudFormation launch templates."
