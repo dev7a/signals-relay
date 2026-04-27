@@ -41,12 +41,12 @@ small push batches by choosing when and how much to poll.
 - Lambda recursion safeguards and SQS delay limits shape the design.
 - It is less event-native than the subscription and Kinesis paths.
 
-## Best Fit
+## Historical Fit
 
-Use this approach when explicit control over polling cadence matters more than
-keeping the pipeline event-driven.
+This approach fit the case where explicit control over polling cadence mattered
+more than keeping the pipeline event-driven.
 
-## Open Questions
+## Questions That Drove The Decision
 
 - Which CloudWatch Logs API limits dominate page size, rate limits, and token
   lifetime?

@@ -5,14 +5,13 @@ repository.
 
 ## Problem
 
-CloudWatch Application Signals writes span records to the `aws/spans` log group.
-In practice, CloudWatch Logs often delivers those records in very small batches,
-and each log record represents a single span. Directly exporting each small
-batch as OTLP would create many Lambda invocations and many small downstream
-requests.
+CloudWatch Application Signals writes span records to the `aws/spans` log group,
+where each log record represents a single span. Directly exporting each
+CloudWatch Logs delivery batch as OTLP would create many Lambda invocations and
+many small downstream requests.
 
 Signals Relay adds a partitioning and windowing layer so related span records
-can be grouped by trace before OTLP export.
+can be grouped by trace and exported in bounded batches.
 
 ## Runtime Data Flow
 
@@ -34,12 +33,11 @@ delivery shape.
 
 ## Why This Architecture Was Chosen
 
-The main observed problem was not just buffering. CloudWatch Logs often delivers
-`aws/spans` records in small batches, and managed-link decorators need to be
-near their target spans long enough for link reconciliation.
+The current design was chosen because buffering alone is not enough. Signals
+Relay also needs trace-based grouping and a short reconciliation period for
+managed-link decorators.
 
-The partitioner, Kinesis stream, and tumbling-window relay solve that problem
-directly:
+The partitioner, Kinesis stream, and tumbling-window relay provide that shape:
 
 - the partitioner chooses `traceId` as the Kinesis partition key
 - Kinesis gives the relay trace-based grouping instead of source-log delivery

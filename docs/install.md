@@ -239,11 +239,6 @@ Local source installs assume:
 - AWS SAM CLI
 - AWS credentials for the target deployment account and Region
 
-The local config generator renders deployment profiles and the maintainer
-`public_publish` profile into one ignored `samconfig.toml`. Source-only deploys
-use the `default` or `collector` profile, but the generator still requires the
-public publish placeholders so the rendered file is complete.
-
 Generate local SAM configuration:
 
 ```bash
@@ -253,10 +248,6 @@ export SIGNALS_RELAY_PUBLIC_PROFILE="your-publish-profile"
 export SIGNALS_RELAY_PUBLIC_SAR_BUCKET="your-sar-artifacts-bucket"
 uv run ./scripts/init_samconfig.py
 ```
-
-If you are only deploying from source, `SIGNALS_RELAY_PUBLIC_PROFILE` may reuse
-your deployment profile and `SIGNALS_RELAY_PUBLIC_SAR_BUCKET` is only used if
-you later run the `public_publish` package/publish profile.
 
 Build and deploy direct mode:
 
@@ -277,11 +268,17 @@ when set. If that variable is omitted, the generator falls back to the checked-i
 `us-east-1` arm64 OpenTelemetry collector layer ARN. Verify the layer ARN for
 your target Region and collector version before using collector mode.
 
-The generator renders the ignored local `samconfig.toml` from
-`samconfig.example.toml`. Set `SIGNALS_RELAY_REGION` when local deployment
-should target a Region other than `us-east-1`. The generated `default` and
-`collector` profiles inherit that Region, while `public_publish` remains pinned
-to `us-east-1` for the current SAR publication path.
+The helper renders the ignored local `samconfig.toml` from
+`samconfig.example.toml`. It renders all local SAM environments at once, so it
+also asks for the publish-profile placeholders. For source-only deploys,
+`SIGNALS_RELAY_PUBLIC_PROFILE` may reuse your deployment profile and
+`SIGNALS_RELAY_PUBLIC_SAR_BUCKET` is only used if you later run the
+`public_publish` package/publish profile.
+
+Set `SIGNALS_RELAY_REGION` when local deployment should target a Region other
+than `us-east-1`. The generated `default` and `collector` profiles inherit that
+Region, while `public_publish` remains pinned to `us-east-1` for the current
+SAR publication path.
 
 ## Upgrade An Existing Install
 

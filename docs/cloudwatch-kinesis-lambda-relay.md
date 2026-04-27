@@ -40,13 +40,13 @@ appeal is better invoke-level batching than direct CloudWatch Logs to Lambda.
 - Throughput planning is harder if CloudWatch Logs distribution creates hot
   partitions.
 
-## Best Fit
+## Historical Fit
 
-Use this approach when the main problem is invoke-level batching, and when
-trace-based grouping or managed-link reconciliation is less important than
+This approach fit the case where invoke-level batching was the main problem and
+trace-based grouping or managed-link reconciliation was less important than
 removing the partitioner Lambda.
 
-## Open Questions
+## Questions That Drove The Decision
 
 - Would CloudWatch Logs subscription distribution create hot partitions for
   `aws/spans` traffic?

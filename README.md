@@ -17,14 +17,15 @@ Secrets Manager.
 
 The fastest evaluation path is the AWS Serverless Application Repository (SAR)
 application or the versioned CloudFormation quick-launch links published with
-each GitHub Release. The target account must be allowed to deploy the selected
-SAR version through account, organization, or public sharing. You only need a
-source checkout when you want to inspect, modify, or publish the application
-yourself.
+each [GitHub Release](https://github.com/dev7a/signals-relay/releases). The
+target account must be allowed to deploy the selected SAR version through
+account, organization, or public sharing. You only need a source checkout when
+you want to inspect, modify, or publish the application yourself.
 
 ## Fastest Install Path
 
-1. Open the GitHub Release for the version you want to deploy.
+1. Open the [GitHub Releases](https://github.com/dev7a/signals-relay/releases)
+   page and choose the version you want to deploy.
 2. Use the CloudFormation quick-launch link for either:
    - no VPC configuration
    - an existing VPC and subnet selection, if those subnets have outbound HTTPS
@@ -79,21 +80,6 @@ window before OTLP export.
 Read [docs/current-architecture.md](./docs/current-architecture.md) for the
 implemented architecture, export modes, failure handling, and tradeoffs.
 
-## Deliverables
-
-Each coordinated release includes:
-
-- the reusable `signals-relay-core` crate artifact
-- the deployable SAM application published through SAR
-- versioned SAR-backed CloudFormation launch templates for no-VPC and VPC
-  console deployments
-- GitHub Release notes with CloudFormation quick-launch badge links and
-  versioned template links
-
-SAR remains the canonical publish path. The CloudFormation launch templates are
-a console-friendly release surface for deploying the published SAR application;
-they do not replace SAR and do not use a mutable `latest` URL.
-
 ## Documentation Map
 
 - [Install and deployment](./docs/install.md): deploy from GitHub Release
@@ -104,6 +90,19 @@ they do not replace SAR and do not use a mutable `latest` URL.
   workflow
 - [Design background](./docs/README.md#design-background): architecture
   decisions and alternatives considered
+
+## Release Surfaces
+
+Each release gives operators two install surfaces:
+
+- the SAR application in `us-east-1`, which remains the canonical publish path
+- versioned CloudFormation quick-launch templates for no-VPC and existing-VPC
+  console deployments
+
+The CloudFormation templates deploy the published SAR application. They do not
+replace SAR and do not use a mutable `latest` URL. Maintainer artifacts such as
+the reusable crate package and CloudFormation manifest are covered in
+[docs/release.md](./docs/release.md).
 
 ## Build And Validate From Source
 
