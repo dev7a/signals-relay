@@ -13,6 +13,13 @@ many small downstream requests.
 Signals Relay adds a partitioning and windowing layer so related span records
 can be grouped by trace and exported in bounded batches.
 
+<div align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../svgs/architecture-flow-dark.svg">
+  <img src="../svgs/architecture-flow-light.svg" alt="Animated schematic showing small aws/spans batches fanning out through the partitioner into Kinesis lanes, then aggregating in the relay before OTLP export">
+</picture>
+</div>
+
 ## Runtime Data Flow
 
 1. CloudWatch Logs sends `aws/spans` records to the partitioner Lambda through a
