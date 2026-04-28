@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="520" viewBox="0 0 1120 520" role="img" aria-labelledby="title desc">
+  <title id="title">Signals Relay batching and fanout flow</title>
+  <desc id="desc">CloudWatch aws/spans emits small sequential batches. The partitioner fans records out by trace key into Kinesis lanes, and the relay aggregates them in a tumbling window before OTLP export.</desc>
+  <style>
+    .frame { fill: #111a2e; stroke: #6f7f99; stroke-width: 1.4; }
+    .frame-strong { stroke: #d6deea; stroke-width: 1.8; }
+    .flow { stroke: #d6deea; stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .flow-soft { stroke: #153a55; stroke-width: 11; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .failure { stroke: #fbbf24; stroke-width: 1.7; stroke-dasharray: 7 7; fill: none; }
+    .title { fill: #f7f9fc; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 26px; font-weight: 700; }
+    .subtitle { fill: #aab7ca; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; }
+    .label { fill: #f7f9fc; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 20px; font-weight: 650; }
+    .small { fill: #aab7ca; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; }
+    .mono { fill: #aab7ca; font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 12px; letter-spacing: 0.08em; }
+    .mono-strong { fill: #f7f9fc; font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; }
+    .chip { fill: #153a55; stroke: #7dd3fc; stroke-width: 1; }
+    .chip-text { fill: #7dd3fc; font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; }
+    .ok-chip { fill: #123a36; stroke: #5eead4; stroke-width: 1; }
+    .ok-text { fill: #5eead4; font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; }
+    .warn-chip { fill: #3a2b0a; stroke: #fbbf24; stroke-width: 1; }
+    .warn-text { fill: #fbbf24; font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; }
+    .batch-1 { fill: #d7dce5; stroke: #b6bfcd; stroke-width: 1.2; }
+    .batch-2 { fill: #9aa5b5; stroke: #c7d0dd; stroke-width: 1.2; }
+    .batch-3 { fill: #566273; stroke: #9aa5b5; stroke-width: 1.2; }
+    .record-a { fill: #c7ced9; stroke: #d6deea; stroke-width: 1.2; }
+    .record-b { fill: #566273; stroke: #aab7ca; stroke-width: 1.2; }
+    .aggregate { fill: #17233a; stroke: #d6deea; stroke-width: 1.3; }
+    .shard-line { stroke: #6f7f99; stroke-width: 1.3; }
+    .arrival-ring { fill: none; stroke: #7dd3fc; stroke-width: 2; opacity: 0; transform-origin: 948px 270px; animation: arrival-ring 8s ease-in-out infinite; }
+    .moving { filter: drop-shadow(0 0 10px rgba(125, 211, 252, 0.24)); animation: token-fade 8s ease-in-out infinite; }
+    .reduced { display: none; }
+
+    @keyframes token-fade {
+      0%, 5%, 94%, 100% { opacity: 0; }
+      9%, 88% { opacity: 1; }
+    }
+    @keyframes arrival-ring {
+      0%, 82%, 100% { opacity: 0; transform: scale(0.75); }
+      89% { opacity: 0.9; transform: scale(1); }
+      96% { opacity: 0; transform: scale(1.45); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .moving, .arrival-ring { animation: none; }
+      .moving { display: none; }
+      .reduced { display: block; }
+      .arrival-ring { opacity: 0.65; transform: scale(1); }
+    }
+  </style>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#d6deea" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <text class="title" x="72" y="72">Small batches become trace-shaped exports</text>
+  <text class="subtitle" x="72" y="100">CloudWatch delivers many small batches; the partitioner fans records out by trace key; the relay aggregates the window.</text>
+
+  <rect class="frame" x="72" y="168" width="138" height="184" rx="10"/>
+  <rect class="frame" x="330" y="156" width="174" height="208" rx="10"/>
+  <rect class="frame frame-strong" x="560" y="156" width="174" height="208" rx="10"/>
+  <rect class="frame frame-strong" x="790" y="156" width="168" height="208" rx="10"/>
+  <rect class="frame" x="1010" y="240" width="70" height="60" rx="10"/>
+
+  <text class="mono" x="141" y="202" text-anchor="middle">CW Logs</text>
+  <text class="label" x="141" y="238" text-anchor="middle">aws/spans</text>
+
+  <text class="mono" x="417" y="190" text-anchor="middle">LAMBDA</text>
+  <text class="label" x="417" y="226" text-anchor="middle">Partitioner</text>
+  <rect class="chip" x="361" y="326" width="112" height="28" rx="14"/>
+  <text class="chip-text" x="417" y="345" text-anchor="middle">traceId key</text>
+
+  <text class="mono" x="647" y="190" text-anchor="middle">STREAM</text>
+  <text class="label" x="647" y="226" text-anchor="middle">Kinesis</text>
+
+  <text class="mono" x="874" y="190" text-anchor="middle">RELAY</text>
+  <text class="label" x="874" y="226" text-anchor="middle">Aggregate</text>
+  <rect class="ok-chip" x="818" y="326" width="112" height="28" rx="14"/>
+  <text class="ok-text" x="874" y="345" text-anchor="middle">60s window</text>
+
+  <text class="mono" x="1045" y="274" text-anchor="middle">OTLP</text>
+    <path class="flow-soft" d="M 210 270 H 330 M 504 270 C 528 270 536 252 560 252 M 504 270 C 528 270 536 288 560 288 M 734 252 C 758 252 766 270 790 270 M 734 288 C 758 288 766 270 790 270 M 958 270 H 1010"/>
+  <path class="flow" d="M 210 270 H 330" marker-end="url(#arrow)"/>
+  <path class="flow" d="M 504 270 C 528 270 536 252 560 252" marker-end="url(#arrow)"/>
+  <path class="flow" d="M 504 270 C 528 270 536 288 560 288" marker-end="url(#arrow)"/>
+  <path class="flow" d="M 734 252 C 758 252 766 270 790 270"/>
+  <path class="flow" d="M 734 288 C 758 288 766 270 790 270" marker-end="url(#arrow)"/>
+  <path class="flow" d="M 958 270 H 1010" marker-end="url(#arrow)"/>
+
+  <text class="mono-strong" x="290" y="318" text-anchor="middle">small batches</text>
+
+  <line class="shard-line" x1="594" y1="252" x2="704" y2="252"/>
+  <line class="shard-line" x1="594" y1="288" x2="704" y2="288"/>
+  <text class="mono-strong" x="647" y="358" text-anchor="middle">fanout by trace id</text>
+
+  <rect class="aggregate" x="838" y="248" width="72" height="44" rx="6"/>
+  <text class="mono-strong" x="874" y="392" text-anchor="middle">aggregate completed records</text>
+
+  <path class="failure" d="M 417 364 V 430 H 620" marker-end="url(#arrow)"/>
+  <rect class="warn-chip" x="438" y="416" width="152" height="28" rx="14"/>
+  <text class="warn-text" x="514" y="435" text-anchor="middle">publish failures</text>
+
+  <circle class="arrival-ring" cx="948" cy="270" r="24"/>
+
+  <g class="moving">
+    <g transform="translate(120 262)" opacity="0">
+      <rect class="batch-1" width="18" height="16" rx="3"/>
+      <animateTransform attributeName="transform" type="translate" dur="8s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.06;0.34;0.42;0.46;0.50;0.56;0.66;0.72;0.78;0.82;0.86;1" values="120 262;120 262;344 262;456 262;486 262;535 252;560 244;704 244;734 244;764 254;790 262;851 262;851 262"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" keyTimes="0;0.04;0.84;0.90;1" values="0;1;1;0;0"/>
+    </g>
+    <g transform="translate(148 262)" opacity="0">
+      <rect class="batch-2" width="18" height="16" rx="3"/>
+      <animateTransform attributeName="transform" type="translate" dur="8s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.06;0.34;0.42;1" values="148 262;148 262;372 262;484 262;484 262"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" keyTimes="0;0.04;0.39;0.42;1" values="0;1;1;0;0"/>
+    </g>
+    <g transform="translate(176 262)" opacity="0">
+      <rect class="batch-3" width="18" height="16" rx="3"/>
+      <animateTransform attributeName="transform" type="translate" dur="8s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.06;0.34;0.42;0.46;0.50;0.56;0.66;0.72;0.78;0.82;0.86;1" values="176 262;176 262;400 262;512 262;522 262;535 272;560 280;704 280;734 280;764 272;790 262;879 262;879 262"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" keyTimes="0;0.04;0.86;0.92;1" values="0;1;1;0;0"/>
+    </g>
+  </g>
+
+  <g class="reduced">
+    <rect class="record-a" x="851" y="262" width="18" height="16" rx="4"/>
+    <rect class="record-b" x="879" y="262" width="18" height="16" rx="4"/>
+  </g>
+</svg>
