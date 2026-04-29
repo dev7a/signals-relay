@@ -71,6 +71,15 @@ See [release.md](./release.md).
 > Do not rewrite alerts inside code fences.
 [Do not rewrite](./release.md)
 ```
+
+1. Preserve indented code fences:
+
+   ```md
+   > [!NOTE]
+   > Do not rewrite indented alerts inside code fences.
+   [Do not rewrite indented](./release.md)
+   ![Do not rewrite indented image](./assets/cloudformation-launch-badge.svg)
+   ```
 """,
             )
             _write(
@@ -151,6 +160,12 @@ See [install](./install.md) and [local](#manual-sar-publish).
             self.assertIn("Keep this source compatible with GitHub alerts.", install_page)
             self.assertIn("> [!NOTE]", install_page)
             self.assertIn("[Do not rewrite](./release.md)", install_page)
+            self.assertIn("Do not rewrite indented alerts inside code fences.", install_page)
+            self.assertIn("[Do not rewrite indented](./release.md)", install_page)
+            self.assertIn(
+                "![Do not rewrite indented image](./assets/cloudformation-launch-badge.svg)",
+                install_page,
+            )
             self.assertIn("../docs-assets/docs/assets/cloudformation-launch-badge.svg", install_page)
             self.assertIn('title: "Architecture"', architecture_page)
             self.assertIn("../../docs-assets/svgs/architecture-flow-dark.svg", architecture_page)

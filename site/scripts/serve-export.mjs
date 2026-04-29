@@ -30,7 +30,12 @@ const mimeTypes = {
 };
 
 function fileForUrl(urlPath) {
-  let path = decodeURIComponent(urlPath);
+  let path;
+  try {
+    path = decodeURIComponent(urlPath);
+  } catch {
+    return null;
+  }
   if (basePath) {
     if (path === "/") return { redirect: `${basePath}/` };
     if (path === basePath) return { redirect: `${basePath}/` };

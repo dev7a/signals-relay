@@ -42,7 +42,7 @@ SOURCE_LINK_OVERRIDES = {
     ): "https://github.com/dev7a/signals-relay/blob/main/docs/long-poller-sqs-delayed-task.md",
 }
 
-FENCE_RE = re.compile(r"(?ms)^```.*?^```[ \t]*\n?")
+FENCE_RE = re.compile(r"(?ms)^[ \t]*```.*?^[ \t]*```[ \t]*\n?")
 MARKDOWN_IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)")
 MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[([^\]]+)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)")
 HTML_IMAGE_RE = re.compile(r"(?is)<img\b([^>]*?)\/?>")
