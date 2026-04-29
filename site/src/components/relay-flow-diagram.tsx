@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useEffect, useState, type ReactNode } from "react";
 
 const routes = [
   {
@@ -116,9 +118,26 @@ function OtlpIcon() {
   );
 }
 
+function usePrefersReducedMotion() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const applyPreference = () => setPrefersReducedMotion(media.matches);
+
+    applyPreference();
+    media.addEventListener("change", applyPreference);
+    return () => media.removeEventListener("change", applyPreference);
+  }, []);
+
+  return prefersReducedMotion;
+}
+
 export function RelayFlowDiagram() {
+  const prefersReducedMotion = usePrefersReducedMotion();
+
   return (
-    <div className="relay-flow" aria-label="Signals Relay routing diagram">
+    <div className="relay-flow" role="img" aria-label="Signals Relay routing diagram">
       <div className="relay-flow__glow" aria-hidden="true" />
       <div className="relay-flow__metrics" aria-hidden="true">
         <Metric label="log source" value="aws/spans" />
@@ -144,20 +163,24 @@ export function RelayFlowDiagram() {
                 y1="0%"
                 y2="0%"
               >
-                <animate
-                  attributeName="x1"
-                  begin={delay}
-                  dur={duration}
-                  repeatCount="indefinite"
-                  values="10%;110%"
-                />
-                <animate
-                  attributeName="x2"
-                  begin={delay}
-                  dur={duration}
-                  repeatCount="indefinite"
-                  values="0%;100%"
-                />
+                {!prefersReducedMotion ? (
+                  <>
+                    <animate
+                      attributeName="x1"
+                      begin={delay}
+                      dur={duration}
+                      repeatCount="indefinite"
+                      values="10%;110%"
+                    />
+                    <animate
+                      attributeName="x2"
+                      begin={delay}
+                      dur={duration}
+                      repeatCount="indefinite"
+                      values="0%;100%"
+                    />
+                  </>
+                ) : null}
                 <stop offset="0%" stopColor="#38bdf8" stopOpacity="0" />
                 <stop offset="24%" stopColor="#38bdf8" stopOpacity="0.92" />
                 <stop offset="44%" stopColor="#a78bfa" />

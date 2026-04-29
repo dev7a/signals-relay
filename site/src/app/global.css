@@ -129,12 +129,6 @@ html > body[data-scroll-locked] {
   will-change: transform;
 }
 
-.hero-parallax__shade {
-  background:
-    linear-gradient(90deg, rgb(10 10 10 / 0.98) 0%, rgb(10 10 10 / 0.88) 31%, rgb(10 10 10 / 0.48) 63%, rgb(10 10 10 / 0.18) 100%),
-    linear-gradient(180deg, rgb(10 10 10 / 0.18) 0%, rgb(10 10 10 / 0.72) 100%);
-}
-
 .relay-flow {
   position: relative;
   z-index: 10;
@@ -198,10 +192,9 @@ html > body[data-scroll-locked] {
 
 .relay-flow__metric span {
   color: white;
-  font-family:
-    "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: var(--font-mono), monospace;
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .relay-flow__metric small {
@@ -266,10 +259,9 @@ html > body[data-scroll-locked] {
 
 .relay-flow__node span {
   color: rgb(186 230 253 / 0.74);
-  font-family:
-    "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: var(--font-mono), monospace;
   font-size: 0.68rem;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0;
   text-transform: uppercase;
 }
