@@ -19,7 +19,7 @@ export function HomeActions({ githubUrl }: { githubUrl: string }) {
         aria-label="Open Signals Relay on GitHub"
         className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-white/15 bg-white/[0.08] px-3 text-sm font-medium text-white shadow-sm shadow-black/20 backdrop-blur transition hover:bg-white/[0.14]"
         href={githubUrl}
-        rel="noreferrer"
+        rel="noopener noreferrer"
         target="_blank"
       >
         <GitFork aria-hidden="true" className="h-4 w-4" />
