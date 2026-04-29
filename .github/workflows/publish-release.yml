@@ -27,9 +27,9 @@ env:
   RELEASE_ROOT: release
   AWS_SAM_CLI_VERSION: "1.157.1"
   CARGO_LAMBDA_VERSION: "1.9.1"
-  CARGO_LAMBDA_AARCH64_UNKNOWN_LINUX_MUSL_SHA256: "71cd6592eb19560fb8d9eec3675ea82dd4c042aa997036d62a11a5010fa5f759"
   ZIG_VERSION: "0.14.1"
   ZIG_AARCH64_LINUX_SHA256: "f7a654acc967864f7a050ddacfaa778c7504a0eca8d2b678839c21eea47c992b"
+  AWS_SAM_CLI_LINUX_ARM64_SHA256: "c32cc1f7f8b1d794eaf223489e12a60b44a58517b58c7248a8b21e95e25e844f"
 
 jobs:
   publish:
@@ -65,12 +65,14 @@ jobs:
       - name: Resolve semantic version
         id: version
         shell: bash
+        env:
+          RELEASE_TAG_INPUT: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
 
           semver_regex='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9A-Za-z-][0-9A-Za-z-]*))*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$'
 
-          tag="${{ inputs.release_tag }}"
+          tag="${RELEASE_TAG_INPUT}"
           if [[ ! "$tag" =~ ^v ]]; then
             echo "::error::Release tags must start with 'v'."
             exit 1
@@ -103,12 +105,11 @@ jobs:
       - name: Set up the Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache Rust dependencies and cargo tools
+      - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: release-arm64
           key: cargo-lambda-${{ env.CARGO_LAMBDA_VERSION }}
-          cache-on-failure: true
 
       - name: Verify workspace and SAM versions match tag
         shell: bash
@@ -183,27 +184,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          if command -v cargo-lambda >/dev/null 2>&1; then
-            if installed_version="$(cargo lambda --version 2>/dev/null | awk '{print $2}')"; then
-              if [[ "$installed_version" == "$CARGO_LAMBDA_VERSION" ]]; then
-                echo "cargo-lambda $CARGO_LAMBDA_VERSION already available"
-                exit 0
-              fi
-            else
-              echo "Existing cargo-lambda is unusable; reinstalling"
-            fi
-          fi
+          cargo install cargo-lambda --locked --version "$CARGO_LAMBDA_VERSION" --force
 
-          archive="cargo-lambda-v${CARGO_LAMBDA_VERSION}.aarch64-unknown-linux-musl.tar.gz"
-          base_url="https://github.com/cargo-lambda/cargo-lambda/releases/download/v${CARGO_LAMBDA_VERSION}"
-          tmp_dir="$(mktemp -d)"
-          trap 'rm -rf "$tmp_dir"' EXIT
-
-          curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 "$base_url/$archive" -o "$tmp_dir/$archive"
-          echo "$CARGO_LAMBDA_AARCH64_UNKNOWN_LINUX_MUSL_SHA256  $tmp_dir/$archive" | sha256sum -c -
-
-          mkdir -p "$HOME/.cargo/bin"
-          tar -xzf "$tmp_dir/$archive" -C "$HOME/.cargo/bin"
           installed_version="$(cargo lambda --version | awk '{print $2}')"
           if [[ "$installed_version" != "$CARGO_LAMBDA_VERSION" ]]; then
             echo "Expected cargo-lambda $CARGO_LAMBDA_VERSION but found $installed_version" >&2
@@ -248,7 +230,36 @@ jobs:
           fi
 
       - name: Install AWS SAM CLI
-        run: python3 -m pip install "aws-sam-cli==$AWS_SAM_CLI_VERSION"
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          archive="aws-sam-cli-linux-arm64.zip"
+          base_url="https://github.com/aws/aws-sam-cli/releases/download/v${AWS_SAM_CLI_VERSION}"
+          install_dir="$HOME/.local/aws-sam-cli"
+          bin_dir="$HOME/.local/bin"
+          tmp_dir="$(mktemp -d)"
+          trap 'rm -rf "$tmp_dir"' EXIT
+
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 "$base_url/$archive" -o "$tmp_dir/$archive"
+          echo "$AWS_SAM_CLI_LINUX_ARM64_SHA256  $tmp_dir/$archive" | sha256sum -c -
+
+          unzip -q "$tmp_dir/$archive" -d "$tmp_dir"
+          rm -rf "$install_dir"
+          rm -f "$bin_dir/sam"
+          "$tmp_dir/install" --bin-dir "$bin_dir" --install-dir "$install_dir"
+
+          export PATH="$bin_dir:$PATH"
+          echo "$bin_dir" >> "$GITHUB_PATH"
+
+          installed_version="$(sam --version | sed -nE 's/^SAM CLI, version ([^[:space:]]+)$/\1/p')"
+          if [[ "$installed_version" != "$AWS_SAM_CLI_VERSION" ]]; then
+            echo "Expected AWS SAM CLI $AWS_SAM_CLI_VERSION but found ${installed_version:-unknown}" >&2
+            exit 1
+          fi
+
+      - name: Build the SAM application
+        run: sam build --template-file "${{ steps.sam_template.outputs.path }}" --beta-features
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
@@ -290,9 +301,6 @@ jobs:
             echo "::error::CFN_ARTIFACT_BUCKET must be in $AWS_REGION, but bucket '$CFN_ARTIFACT_BUCKET' is in $bucket_region."
             exit 1
           fi
-
-      - name: Build the SAM application
-        run: sam build --template-file "${{ steps.sam_template.outputs.path }}" --beta-features
 
       - name: Package the SAM application
         shell: bash
