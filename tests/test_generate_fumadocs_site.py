@@ -166,7 +166,14 @@ See [install](./install.md) and [local](#manual-sar-publish).
                 "![Do not rewrite indented image](./assets/cloudformation-launch-badge.svg)",
                 install_page,
             )
-            self.assertIn("../docs-assets/docs/assets/cloudformation-launch-badge.svg", install_page)
+            self.assertIn(
+                "![Launch badge](../../docs-assets/docs/assets/cloudformation-launch-badge.svg)",
+                install_page,
+            )
+            self.assertNotIn(
+                "![Launch badge](../docs-assets/docs/assets/cloudformation-launch-badge.svg)",
+                install_page,
+            )
             self.assertIn('title: "Architecture"', architecture_page)
             self.assertIn("../../docs-assets/svgs/architecture-flow-dark.svg", architecture_page)
             self.assertIn("../../docs-assets/svgs/architecture-flow-light.svg", architecture_page)
