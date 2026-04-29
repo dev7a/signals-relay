@@ -75,7 +75,7 @@ export default function HomePage() {
             </div>
             <div className="grid gap-3 pt-2 sm:grid-cols-3">
               {fit.map(({ title, body }) => (
-                <article className="rounded-xl border border-white/10 bg-black/18 px-4 py-4 backdrop-blur-sm" key={title}>
+                <article className="rounded-xl border border-white/10 bg-black/[0.18] px-4 py-4 backdrop-blur-sm" key={title}>
                   <h2 className="text-sm font-semibold text-white">{title}</h2>
                   <p className="mt-1 text-sm leading-6 text-slate-200/75">{body}</p>
                 </article>
