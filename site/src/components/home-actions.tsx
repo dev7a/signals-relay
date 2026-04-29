@@ -7,7 +7,7 @@ import { useTheme } from "fumadocs-ui/provider/base";
 export function HomeActions({ githubUrl }: { githubUrl: string }) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const currentTheme = mounted ? resolvedTheme : "dark";
+  const currentTheme = mounted ? resolvedTheme : undefined;
 
   useEffect(() => {
     setMounted(true);
