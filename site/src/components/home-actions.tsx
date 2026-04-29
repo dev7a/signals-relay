@@ -28,6 +28,7 @@ export function HomeActions({ githubUrl }: { githubUrl: string }) {
       <div
         aria-label="Theme"
         className="inline-flex h-10 items-center gap-1 rounded-md border border-white/15 bg-white/[0.08] p-1 text-white shadow-sm shadow-black/20 backdrop-blur"
+        role="group"
       >
         <button
           aria-label="Use light theme"
