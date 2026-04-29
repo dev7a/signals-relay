@@ -9,6 +9,8 @@ export const gitConfig = {
   branch: "main",
 };
 
+export const githubUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}`;
+
 export const siteOrigin = (process.env.SITE_ORIGIN ?? "https://dev7a.github.io/signals-relay")
   .replace(/\/+$/, "");
 

@@ -102,7 +102,7 @@ export function HeroParallax() {
       <img
         alt=""
         className="hero-parallax__diagram"
-        src={withBasePath("/docs-assets/svgs/readme-1-dark.svg")}
+        src={withBasePath("/home-hero/signals-relay-hero-v1.jpg")}
       />
       <div className="hero-parallax__grid" />
       <div className="hero-parallax__shade" />

@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { ArrowRight, Boxes, GitBranch, RadioTower } from "lucide-react";
 import { HeroParallax } from "@/components/hero-parallax";
-import { docsHref, signalsRelayVersion } from "@/lib/shared";
+import { HomeActions } from "@/components/home-actions";
+import { RelayFlowDiagram } from "@/components/relay-flow-diagram";
+import { SectionKicker } from "@/components/section-kicker";
+import { docsHref, githubUrl, signalsRelayVersion } from "@/lib/shared";
 
 const pipeline = [
   "CloudWatch Logs subscription on aws/spans",
@@ -28,82 +31,100 @@ const fit = [
 export default function HomePage() {
   return (
     <main className="min-h-screen">
+      <div className="home-topbar">
+        <Link aria-label="Signals Relay home" className="home-topbar__brand" href="/">
+          Signals Relay
+        </Link>
+        <nav aria-label="Primary" className="home-topbar__links">
+          <Link href={docsHref("install")}>Install</Link>
+          <Link href={docsHref("current-architecture")}>Architecture</Link>
+          <Link href={docsHref()}>Docs</Link>
+        </nav>
+        <HomeActions githubUrl={githubUrl} />
+      </div>
+
       <section className="signals-hero relative isolate overflow-hidden border-b border-neutral-800 bg-neutral-950 text-white">
         <HeroParallax />
-        <div className="relative mx-auto flex min-h-[inherit] w-full max-w-6xl flex-col justify-center px-6 py-20 md:px-10">
-          <div className="max-w-3xl">
-            <p className="mb-5 inline-flex rounded-md border border-white/15 bg-white/[0.08] px-3 py-1 text-sm text-neutral-300 shadow-sm shadow-black/20 backdrop-blur">
+        <div className="relative mx-auto flex min-h-[inherit] w-full max-w-7xl items-center px-6 pb-20 pt-32 md:px-10 md:pb-24 md:pt-36 lg:px-12">
+          <div className="max-w-3xl space-y-6">
+            <p className="inline-flex rounded-md border border-white/15 bg-white/[0.08] px-3 py-1.5 text-sm font-semibold text-neutral-300 shadow-sm shadow-black/20 backdrop-blur">
               Experimental AWS serverless OTLP relay - v{signalsRelayVersion}
             </p>
-            <h1 className="text-4xl font-semibold leading-tight tracking-normal text-white md:text-6xl">
+            <h1 className="max-w-3xl text-5xl font-semibold leading-[0.98] tracking-[-0.05em] text-white md:text-7xl">
               Signals Relay
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-neutral-300 md:text-xl">
+            <p className="max-w-2xl text-lg leading-8 text-neutral-300 lg:text-xl">
               Convert CloudWatch Application Signals aws/spans log records into OTLP trace
               payloads and export them to an OTLP/HTTP backend with an inspectable serverless
               pipeline.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <Link
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-sky-400 px-4 py-2.5 text-sm font-medium text-neutral-950 shadow-lg shadow-black/30 transition hover:bg-sky-300"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-white px-5 py-2.5 text-sm font-semibold text-neutral-950 shadow-lg shadow-black/30 transition hover:bg-neutral-100"
                 href={docsHref("install")}
               >
                 Install guide
                 <ArrowRight aria-hidden="true" className="h-4 w-4" />
               </Link>
               <Link
-                className="inline-flex items-center justify-center gap-2 rounded-md border border-white/15 bg-white/[0.08] px-4 py-2.5 text-sm font-medium text-white backdrop-blur transition hover:bg-white/[0.14]"
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-white/15 bg-white/[0.08] px-5 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/[0.14]"
                 href={docsHref("current-architecture")}
               >
                 Architecture
               </Link>
             </div>
+            <div className="grid gap-3 pt-2 sm:grid-cols-3">
+              {fit.map(({ title, body }) => (
+                <article className="rounded-xl border border-white/10 bg-black/[0.18] px-4 py-4 backdrop-blur-sm" key={title}>
+                  <h2 className="text-sm font-semibold text-white">{title}</h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-200/75">{body}</p>
+                </article>
+              ))}
+            </div>
           </div>
+        </div>
+      </section>
+
+      <section className="border-b border-fd-border bg-fd-background">
+        <div className="mx-auto grid w-full max-w-7xl gap-10 px-6 py-16 md:px-10 md:py-20 lg:grid-cols-[0.86fr_1.14fr] lg:items-center lg:px-12">
+          <div>
+            <SectionKicker>Runtime shape</SectionKicker>
+            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-fd-foreground md:text-4xl">
+              Built around trace-aligned buffering.
+            </h2>
+            <p className="mt-4 text-lg leading-8 text-fd-muted-foreground">
+              Signals Relay trades a little latency for more control over grouping, batching, and
+              export behavior than raw CloudWatch Logs batches usually provide.
+            </p>
+            <ol className="mt-8 grid gap-3">
+              {pipeline.map((item, index) => (
+                <li
+                  className="grid grid-cols-[2.5rem_1fr] items-center gap-3 rounded-xl border border-fd-border bg-fd-card p-4"
+                  key={item}
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-md border border-fd-border bg-fd-muted font-mono text-sm">
+                    {index + 1}
+                  </span>
+                  <span className="text-sm leading-6 text-fd-foreground">{item}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+          <RelayFlowDiagram />
         </div>
       </section>
 
       <section className="border-b border-fd-border bg-fd-muted/30">
-        <div className="mx-auto grid w-full max-w-6xl gap-8 px-6 py-14 md:grid-cols-[0.9fr_1.1fr] md:px-10">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-normal text-fd-muted-foreground">
-              Runtime shape
-            </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-normal text-fd-foreground">
-              Built around trace-aligned buffering.
+        <div className="mx-auto w-full max-w-7xl px-6 py-16 md:px-10 md:py-20 lg:px-12">
+          <div className="mb-8 max-w-2xl">
+            <SectionKicker>Where to next</SectionKicker>
+            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-fd-foreground md:text-4xl">
+              Move from evaluation to operation.
             </h2>
-            <p className="mt-4 leading-7 text-fd-muted-foreground">
-              Signals Relay trades a little latency for more control over grouping, batching, and
-              export behavior than raw CloudWatch Logs batches usually provide.
-            </p>
           </div>
-          <ol className="grid gap-3">
-            {pipeline.map((item, index) => (
-              <li
-                className="grid grid-cols-[2.5rem_1fr] items-center gap-3 rounded-md border border-fd-border bg-fd-background p-4"
-                key={item}
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-md border border-fd-border bg-fd-muted font-mono text-sm">
-                  {index + 1}
-                </span>
-                <span className="text-sm leading-6 text-fd-foreground">{item}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
-
-      <section className="mx-auto w-full max-w-6xl px-6 py-14 md:px-10">
         <div className="grid gap-4 md:grid-cols-3">
-          {fit.map(({ title, body }) => (
-            <article className="rounded-md border border-fd-border bg-fd-card p-5" key={title}>
-              <h3 className="text-base font-semibold text-fd-foreground">{title}</h3>
-              <p className="mt-3 text-sm leading-6 text-fd-muted-foreground">{body}</p>
-            </article>
-          ))}
-        </div>
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
           <Link
-            className="group rounded-md border border-fd-border p-5 transition hover:bg-fd-muted"
+            className="group rounded-2xl border border-fd-border bg-fd-card p-6 transition hover:-translate-y-0.5 hover:border-[color:var(--signals-cyan-soft)] hover:shadow-sm"
             href={docsHref()}
           >
             <Boxes aria-hidden="true" className="h-5 w-5 text-[color:var(--signals-blue)]" />
@@ -113,7 +134,7 @@ export default function HomePage() {
             </p>
           </Link>
           <Link
-            className="group rounded-md border border-fd-border p-5 transition hover:bg-fd-muted"
+            className="group rounded-2xl border border-fd-border bg-fd-card p-6 transition hover:-translate-y-0.5 hover:border-[color:var(--signals-cyan-soft)] hover:shadow-sm"
             href={docsHref("release")}
           >
             <GitBranch aria-hidden="true" className="h-5 w-5 text-[color:var(--signals-green)]" />
@@ -123,7 +144,7 @@ export default function HomePage() {
             </p>
           </Link>
           <Link
-            className="group rounded-md border border-fd-border p-5 transition hover:bg-fd-muted"
+            className="group rounded-2xl border border-fd-border bg-fd-card p-6 transition hover:-translate-y-0.5 hover:border-[color:var(--signals-cyan-soft)] hover:shadow-sm"
             href={docsHref("current-architecture")}
           >
             <RadioTower aria-hidden="true" className="h-5 w-5 text-[color:var(--signals-amber)]" />
@@ -133,10 +154,11 @@ export default function HomePage() {
             </p>
           </Link>
         </div>
+        </div>
       </section>
 
       <section className="border-t border-fd-border bg-fd-muted/30">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-10 md:flex-row md:items-center md:justify-between md:px-10">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-6 py-10 md:flex-row md:items-center md:justify-between md:px-10 lg:px-12">
           <div>
             <h2 className="text-xl font-semibold tracking-normal">Ready to evaluate the relay?</h2>
             <p className="mt-2 text-sm text-fd-muted-foreground">
