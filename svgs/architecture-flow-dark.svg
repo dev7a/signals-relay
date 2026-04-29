@@ -2,7 +2,7 @@
   <title id="title">Signals Relay batching and fanout flow</title>
   <desc id="desc">CloudWatch aws/spans emits small sequential batches. The partitioner fans records out by trace key into Kinesis lanes, and the relay aggregates them in a tumbling window before OTLP export.</desc>
   <style>
-    .frame { fill: #111a2e; stroke: #6f7f99; stroke-width: 1.4; }
+    .frame { fill: #24262d; stroke: #8b95a1; stroke-width: 1.4; }
     .frame-strong { stroke: #d6deea; stroke-width: 1.8; }
     .flow { stroke: #d6deea; stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .flow-soft { stroke: #153a55; stroke-width: 11; fill: none; stroke-linecap: round; stroke-linejoin: round; }
@@ -24,7 +24,7 @@
     .batch-3 { fill: #566273; stroke: #9aa5b5; stroke-width: 1.2; }
     .record-a { fill: #c7ced9; stroke: #d6deea; stroke-width: 1.2; }
     .record-b { fill: #566273; stroke: #aab7ca; stroke-width: 1.2; }
-    .aggregate { fill: #17233a; stroke: #d6deea; stroke-width: 1.3; }
+    .aggregate { fill: #282b32; stroke: #d6deea; stroke-width: 1.3; }
     .shard-line { stroke: #6f7f99; stroke-width: 1.3; }
     .arrival-ring { fill: none; stroke: #7dd3fc; stroke-width: 2; opacity: 0; transform-origin: 948px 270px; animation: arrival-ring 8s ease-in-out infinite; }
     .moving { filter: drop-shadow(0 0 10px rgba(125, 211, 252, 0.24)); animation: token-fade 8s ease-in-out infinite; }
