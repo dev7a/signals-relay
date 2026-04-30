@@ -256,6 +256,16 @@ function useMeasuredRoutes(
       });
     };
 
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateRoutes);
+      updateRoutes();
+
+      return () => {
+        window.cancelAnimationFrame(animationFrame);
+        window.removeEventListener("resize", updateRoutes);
+      };
+    }
+
     const observer = new ResizeObserver(updateRoutes);
     const elements = [
       canvasRef.current,
