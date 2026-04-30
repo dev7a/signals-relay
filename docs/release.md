@@ -6,6 +6,8 @@ coordinated release.
 For operator install paths, quick-launch deployment, IaC examples, and upgrade
 guidance, see [install.md](./install.md).
 
+For website generation and local preview, see [`site/README.md`](../site/README.md).
+
 ## Release Prerequisites
 
 The release workflow publishes from one coordinated repository version. Before

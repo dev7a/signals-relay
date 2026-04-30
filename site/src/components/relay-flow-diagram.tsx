@@ -1,49 +1,298 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
-const routes = [
+type Route = {
+  d: string;
+  delay: string;
+  duration: string;
+  reverse?: boolean;
+  sweepAxis?: "x" | "y";
+};
+
+type Point = {
+  x: number;
+  y: number;
+};
+
+const VIEWBOX_WIDTH = 1000;
+const VIEWBOX_HEIGHT = 520;
+
+const fallbackRoutes: Route[] = [
   {
-    d: "M 170 210 C 220 238 236 334 306 362",
+    d: "M 110 282 C 110 330 236 362 306 362",
     delay: "-0.4s",
-    duration: "4.4s",
+    duration: "2.9s",
   },
   {
     d: "M 416 362 C 462 326 506 326 550 362",
     delay: "-1.7s",
-    duration: "5.4s",
+    duration: "3.6s",
   },
   {
     d: "M 416 362 C 466 362 500 362 550 362",
     delay: "-3s",
-    duration: "4.9s",
+    duration: "3.3s",
   },
   {
     d: "M 416 362 C 462 398 506 398 550 362",
     delay: "-0.8s",
-    duration: "4.8s",
+    duration: "3.2s",
   },
   {
     d: "M 660 362 C 708 326 748 326 796 362",
     delay: "-2.4s",
-    duration: "5.1s",
+    duration: "3.4s",
   },
   {
     d: "M 660 362 C 710 362 746 362 796 362",
     delay: "-1.1s",
-    duration: "4.6s",
+    duration: "3.1s",
   },
   {
     d: "M 660 362 C 708 398 748 398 796 362",
     delay: "-3.4s",
-    duration: "5.6s",
+    duration: "3.7s",
   },
   {
     d: "M 906 362 C 956 326 906 232 944 200",
     delay: "-2.6s",
-    duration: "5.8s",
+    duration: "3.9s",
   },
 ];
+
+function formatCoordinate(value: number) {
+  return Number(value.toFixed(1));
+}
+
+function routeWithTiming(paths: Array<string | Pick<Route, "d" | "reverse" | "sweepAxis">>): Route[] {
+  return fallbackRoutes.map(({ delay, duration }, index) => {
+    const path = paths[index] ?? fallbackRoutes[index].d;
+
+    return {
+      d: typeof path === "string" ? path : path.d,
+      delay,
+      duration,
+      reverse: typeof path === "string" ? undefined : path.reverse,
+      sweepAxis: typeof path === "string" ? undefined : path.sweepAxis,
+    };
+  });
+}
+
+function anchorPoint(
+  element: HTMLElement,
+  canvas: DOMRect,
+  edge: "bottom" | "left" | "right" | "top",
+): Point {
+  const rect = element.getBoundingClientRect();
+  const x =
+    edge === "bottom" || edge === "top"
+      ? rect.left + rect.width / 2
+      : edge === "left"
+        ? rect.left
+        : rect.right;
+  const y =
+    edge === "bottom" ? rect.bottom : edge === "top" ? rect.top : rect.top + rect.height / 2;
+
+  return {
+    x: formatCoordinate(((x - canvas.left) / canvas.width) * VIEWBOX_WIDTH),
+    y: formatCoordinate(((y - canvas.top) / canvas.height) * VIEWBOX_HEIGHT),
+  };
+}
+
+function curvedRoute(from: Point, to: Point, verticalOffset = 0) {
+  const gap = Math.max(40, Math.abs(to.x - from.x));
+  const controlOffset = gap * 0.45;
+
+  return [
+    `M ${from.x} ${from.y}`,
+    `C ${formatCoordinate(from.x + controlOffset)} ${formatCoordinate(from.y + verticalOffset)}`,
+    `${formatCoordinate(to.x - controlOffset)} ${formatCoordinate(to.y + verticalOffset)}`,
+    `${to.x} ${to.y}`,
+  ].join(" ");
+}
+
+function sourceToPartitionerRoute(from: Point, to: Point) {
+  const horizontalGap = Math.max(56, Math.abs(to.x - from.x));
+  const verticalGap = Math.max(40, Math.abs(to.y - from.y));
+  const exit = Math.max(34, Math.min(84, verticalGap * 0.52));
+
+  return [
+    `M ${from.x} ${from.y}`,
+    `C ${from.x} ${formatCoordinate(from.y + exit)}`,
+    `${formatCoordinate(to.x - horizontalGap * 0.42)} ${to.y}`,
+    `${to.x} ${to.y}`,
+  ].join(" ");
+}
+
+function stackedRoute(from: Point, to: Point) {
+  const verticalGap = to.y - from.y;
+  const horizontalDelta = to.x - from.x;
+  const horizontalBend = Math.abs(horizontalDelta) < 4 ? 10 : horizontalDelta * 0.18;
+
+  return [
+    `M ${from.x} ${from.y}`,
+    `C ${formatCoordinate(from.x + horizontalBend)} ${formatCoordinate(from.y + verticalGap * 0.45)}`,
+    `${formatCoordinate(to.x - horizontalBend)} ${formatCoordinate(to.y - verticalGap * 0.45)}`,
+    `${to.x} ${to.y}`,
+  ].join(" ");
+}
+
+function relayToBackendRoute(from: Point, to: Point) {
+  const gap = Math.max(56, Math.abs(to.x - from.x));
+  const approach = Math.max(34, Math.min(80, Math.abs(from.y - to.y) * 0.55));
+
+  return [
+    `M ${from.x} ${from.y}`,
+    `C ${formatCoordinate(from.x + gap * 0.7)} ${from.y}`,
+    `${to.x} ${formatCoordinate(to.y + approach)}`,
+    `${to.x} ${to.y}`,
+  ].join(" ");
+}
+
+function calculateRoutes(
+  canvasElement: HTMLElement,
+  sourceElement: HTMLElement,
+  partitionerElement: HTMLElement,
+  streamElement: HTMLElement,
+  relayElement: HTMLElement,
+  otlpElement: HTMLElement,
+) {
+  const canvas = canvasElement.getBoundingClientRect();
+
+  if (!canvas.width || !canvas.height) {
+    return fallbackRoutes;
+  }
+
+  const sourceOut = anchorPoint(sourceElement, canvas, "bottom");
+  const sourceToPartitioner = anchorPoint(partitionerElement, canvas, "top");
+  const partitionerIn = anchorPoint(partitionerElement, canvas, "left");
+  const partitionerOut = anchorPoint(partitionerElement, canvas, "right");
+  const streamIn = anchorPoint(streamElement, canvas, "left");
+  const streamOut = anchorPoint(streamElement, canvas, "right");
+  const relayIn = anchorPoint(relayElement, canvas, "left");
+  const relayOut = anchorPoint(relayElement, canvas, "right");
+  const relayToOtlp = anchorPoint(relayElement, canvas, "top");
+  const otlpIn = anchorPoint(otlpElement, canvas, "bottom");
+  const laneSpread = Math.max(22, Math.min(38, Math.abs(streamIn.x - partitionerOut.x) * 0.34));
+  const sourceIsStacked =
+    sourceOut.y < sourceToPartitioner.y && Math.abs(sourceOut.x - sourceToPartitioner.x) < 120;
+  const otlpIsStacked = otlpIn.y < relayToOtlp.y && Math.abs(otlpIn.x - relayToOtlp.x) < 120;
+
+  return routeWithTiming([
+    sourceIsStacked
+      ? { d: stackedRoute(sourceOut, sourceToPartitioner), sweepAxis: "y" }
+      : sourceToPartitionerRoute(sourceOut, partitionerIn),
+    curvedRoute(partitionerOut, streamIn, -laneSpread),
+    curvedRoute(partitionerOut, streamIn),
+    curvedRoute(partitionerOut, streamIn, laneSpread),
+    curvedRoute(streamOut, relayIn, -laneSpread),
+    curvedRoute(streamOut, relayIn),
+    curvedRoute(streamOut, relayIn, laneSpread),
+    otlpIsStacked
+      ? { d: stackedRoute(relayToOtlp, otlpIn), reverse: true, sweepAxis: "y" }
+      : relayToBackendRoute(relayOut, otlpIn),
+  ]);
+}
+
+function routesAreEqual(previousRoutes: Route[], nextRoutes: Route[]) {
+  return previousRoutes.every((route, index) => {
+    const nextRoute = nextRoutes[index];
+
+    return (
+      route.d === nextRoute?.d &&
+      route.reverse === nextRoute.reverse &&
+      route.sweepAxis === nextRoute.sweepAxis
+    );
+  });
+}
+
+function useMeasuredRoutes(
+  canvasRef: RefObject<HTMLDivElement | null>,
+  sourceRef: RefObject<HTMLDivElement | null>,
+  partitionerRef: RefObject<HTMLDivElement | null>,
+  streamRef: RefObject<HTMLDivElement | null>,
+  relayRef: RefObject<HTMLDivElement | null>,
+  otlpRef: RefObject<HTMLDivElement | null>,
+) {
+  const [measuredRoutes, setMeasuredRoutes] = useState<Route[]>(fallbackRoutes);
+
+  useEffect(() => {
+    let animationFrame = 0;
+
+    const updateRoutes = () => {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(() => {
+        const canvasElement = canvasRef.current;
+        const sourceElement = sourceRef.current;
+        const partitionerElement = partitionerRef.current;
+        const streamElement = streamRef.current;
+        const relayElement = relayRef.current;
+        const otlpElement = otlpRef.current;
+
+        if (
+          !canvasElement ||
+          !sourceElement ||
+          !partitionerElement ||
+          !streamElement ||
+          !relayElement ||
+          !otlpElement
+        ) {
+          return;
+        }
+
+        const nextRoutes = calculateRoutes(
+          canvasElement,
+          sourceElement,
+          partitionerElement,
+          streamElement,
+          relayElement,
+          otlpElement,
+        );
+
+        setMeasuredRoutes((previousRoutes) =>
+          routesAreEqual(previousRoutes, nextRoutes) ? previousRoutes : nextRoutes,
+        );
+      });
+    };
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateRoutes);
+      updateRoutes();
+
+      return () => {
+        window.cancelAnimationFrame(animationFrame);
+        window.removeEventListener("resize", updateRoutes);
+      };
+    }
+
+    const observer = new ResizeObserver(updateRoutes);
+    const elements = [
+      canvasRef.current,
+      sourceRef.current,
+      partitionerRef.current,
+      streamRef.current,
+      relayRef.current,
+      otlpRef.current,
+    ];
+
+    elements.forEach((element) => {
+      if (element) {
+        observer.observe(element);
+      }
+    });
+    window.addEventListener("resize", updateRoutes);
+    updateRoutes();
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("resize", updateRoutes);
+      observer.disconnect();
+    };
+  }, [canvasRef, sourceRef, partitionerRef, streamRef, relayRef, otlpRef]);
+
+  return measuredRoutes;
+}
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
@@ -58,15 +307,17 @@ function Node({
   className,
   eyebrow,
   title,
+  nodeRef,
   children,
 }: {
   className: string;
   eyebrow: string;
   title: string;
+  nodeRef?: RefObject<HTMLDivElement | null>;
   children: ReactNode;
 }) {
   return (
-    <div className={`relay-flow__node ${className}`}>
+    <div className={`relay-flow__node ${className}`} ref={nodeRef}>
       <div className="relay-flow__icon">{children}</div>
       <span>{eyebrow}</span>
       <strong>{title}</strong>
@@ -135,6 +386,20 @@ function usePrefersReducedMotion() {
 
 export function RelayFlowDiagram() {
   const prefersReducedMotion = usePrefersReducedMotion();
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const sourceRef = useRef<HTMLDivElement>(null);
+  const partitionerRef = useRef<HTMLDivElement>(null);
+  const streamRef = useRef<HTMLDivElement>(null);
+  const relayRef = useRef<HTMLDivElement>(null);
+  const otlpRef = useRef<HTMLDivElement>(null);
+  const routes = useMeasuredRoutes(
+    canvasRef,
+    sourceRef,
+    partitionerRef,
+    streamRef,
+    relayRef,
+    otlpRef,
+  );
 
   return (
     <div className="relay-flow" role="img" aria-label="Signals Relay routing diagram">
@@ -144,50 +409,58 @@ export function RelayFlowDiagram() {
         <Metric label="buffer" value="trace keyed" />
         <Metric label="export" value="OTLP/HTTP" />
       </div>
-      <div className="relay-flow__canvas">
+      <div className="relay-flow__canvas" ref={canvasRef}>
         <svg
           aria-hidden="true"
           className="relay-flow__routes"
           fill="none"
           viewBox="0 0 1000 520"
-          preserveAspectRatio="xMidYMid meet"
+          preserveAspectRatio="none"
         >
           <defs>
-            {routes.map(({ delay, duration }, index) => (
-              <linearGradient
-                gradientUnits="objectBoundingBox"
-                id={`relay-flow-gradient-${index}`}
-                key={`gradient-${index}`}
-                x1="10%"
-                x2="0%"
-                y1="0%"
-                y2="0%"
-              >
-                {!prefersReducedMotion ? (
-                  <>
-                    <animate
-                      attributeName="x1"
-                      begin={delay}
-                      dur={duration}
-                      repeatCount="indefinite"
-                      values="10%;110%"
-                    />
-                    <animate
-                      attributeName="x2"
-                      begin={delay}
-                      dur={duration}
-                      repeatCount="indefinite"
-                      values="0%;100%"
-                    />
-                  </>
-                ) : null}
-                <stop offset="0%" stopColor="#38bdf8" stopOpacity="0" />
-                <stop offset="24%" stopColor="#38bdf8" stopOpacity="0.92" />
-                <stop offset="44%" stopColor="#a78bfa" />
-                <stop offset="63%" stopColor="#fbbf24" stopOpacity="0.95" />
-                <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
-              </linearGradient>
-            ))}
+            {routes.map(({ delay, duration, reverse = false, sweepAxis = "x" }, index) => {
+              const isVertical = sweepAxis === "y";
+              const leadingStart = reverse ? "90%" : "10%";
+              const leadingEnd = reverse ? "-10%" : "110%";
+              const trailingStart = reverse ? "100%" : "0%";
+              const trailingEnd = reverse ? "0%" : "100%";
+
+              return (
+                <linearGradient
+                  gradientUnits="objectBoundingBox"
+                  id={`relay-flow-gradient-${index}`}
+                  key={`gradient-${index}`}
+                  x1={isVertical ? "50%" : leadingStart}
+                  x2={isVertical ? "50%" : trailingStart}
+                  y1={isVertical ? leadingStart : "50%"}
+                  y2={isVertical ? trailingStart : "50%"}
+                >
+                  {!prefersReducedMotion ? (
+                    <>
+                      <animate
+                        attributeName={isVertical ? "y1" : "x1"}
+                        begin={delay}
+                        dur={duration}
+                        repeatCount="indefinite"
+                        values={`${leadingStart};${leadingEnd}`}
+                      />
+                      <animate
+                        attributeName={isVertical ? "y2" : "x2"}
+                        begin={delay}
+                        dur={duration}
+                        repeatCount="indefinite"
+                        values={`${trailingStart};${trailingEnd}`}
+                      />
+                    </>
+                  ) : null}
+                  <stop offset="0%" stopColor="#38bdf8" stopOpacity="0" />
+                  <stop offset="24%" stopColor="#38bdf8" stopOpacity="0.92" />
+                  <stop offset="44%" stopColor="#a78bfa" />
+                  <stop offset="63%" stopColor="#fbbf24" stopOpacity="0.95" />
+                  <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
+                </linearGradient>
+              );
+            })}
           </defs>
           {routes.map(({ d }, index) => (
             <path className="relay-flow__route-base" d={d} key={`base-${index}`} />
@@ -209,19 +482,34 @@ export function RelayFlowDiagram() {
             />
           ))}
         </svg>
-        <Node className="relay-flow__node--source" eyebrow="CloudWatch" title="aws/spans">
+        <Node
+          className="relay-flow__node--source"
+          eyebrow="CloudWatch"
+          nodeRef={sourceRef}
+          title="aws/spans"
+        >
           <AwsCloudWatchIcon />
         </Node>
-        <Node className="relay-flow__node--partitioner" eyebrow="Lambda" title="Partitioner">
+        <Node
+          className="relay-flow__node--partitioner"
+          eyebrow="Lambda"
+          nodeRef={partitionerRef}
+          title="Partitioner"
+        >
           <AwsLambdaIcon />
         </Node>
-        <Node className="relay-flow__node--stream" eyebrow="Kinesis" title="Trace lanes">
+        <Node
+          className="relay-flow__node--stream"
+          eyebrow="Kinesis"
+          nodeRef={streamRef}
+          title="Trace lanes"
+        >
           <AwsKinesisIcon />
         </Node>
-        <Node className="relay-flow__node--relay" eyebrow="Lambda" title="Relay">
+        <Node className="relay-flow__node--relay" eyebrow="Lambda" nodeRef={relayRef} title="Relay">
           <AwsLambdaIcon />
         </Node>
-        <Node className="relay-flow__node--otlp" eyebrow="Backend" title="OTLP">
+        <Node className="relay-flow__node--otlp" eyebrow="Backend" nodeRef={otlpRef} title="OTLP">
           <OtlpIcon />
         </Node>
       </div>

@@ -84,8 +84,12 @@ implemented architecture, export modes, failure handling, and tradeoffs.
 
 - [Install and deployment](./docs/install.md): deploy from GitHub Release
   quick launch, SAR, IaC, or source
+- [Concepts](./docs/concepts.md): glossary, export modes, secret contract, and
+  deployment inputs
 - [Current architecture](./docs/current-architecture.md): runtime data flow,
   export modes, failure handling, and tradeoffs
+- [Troubleshooting](./docs/troubleshooting.md): verify a deployment and diagnose
+  missing spans, export failures, and failure queues
 - [Release guide](./docs/release.md): maintainer-only release and publication
   workflow
 - [Design background](./docs/README.md#design-background): architecture
