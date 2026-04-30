@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Boxes, GitBranch, RadioTower } from "lucide-react";
+import { ArrowRight, Boxes, LifeBuoy, RadioTower } from "lucide-react";
 import { HeroParallax } from "@/components/hero-parallax";
 import { HomeActions } from "@/components/home-actions";
 import { RelayFlowDiagram } from "@/components/relay-flow-diagram";
@@ -19,8 +19,8 @@ const fit = [
     body: "Use the SAR app or quick-launch CloudFormation wrappers to test a standalone AWS path.",
   },
   {
-    title: "Keep deployment inputs explicit",
-    body: "The docs cover source log group prerequisites, shared collector secrets, VPC egress, and upgrade flow.",
+    title: "Follow a broader operator path",
+    body: "Concepts, install, verification, and troubleshooting docs cover the full evaluation loop.",
   },
   {
     title: "Understand the tradeoffs",
@@ -36,8 +36,10 @@ export default function HomePage() {
           Signals Relay
         </Link>
         <nav aria-label="Primary" className="home-topbar__links">
+          <Link href={docsHref("concepts")}>Concepts</Link>
           <Link href={docsHref("install")}>Install</Link>
           <Link href={docsHref("current-architecture")}>Architecture</Link>
+          <Link href={docsHref("troubleshooting")}>Troubleshooting</Link>
           <Link href={docsHref()}>Docs</Link>
         </nav>
         <HomeActions githubUrl={githubUrl} />
@@ -48,7 +50,7 @@ export default function HomePage() {
         <div className="relative mx-auto flex min-h-[inherit] w-full max-w-7xl items-center px-6 pb-20 pt-32 md:px-10 md:pb-24 md:pt-36 lg:px-12">
           <div className="max-w-3xl space-y-6">
             <p className="inline-flex rounded-md border border-white/15 bg-white/[0.08] px-3 py-1.5 text-sm font-semibold text-neutral-300 shadow-sm shadow-black/20 backdrop-blur">
-              Experimental AWS serverless OTLP relay - v{signalsRelayVersion}
+              AWS serverless OTLP relay - v{signalsRelayVersion}
             </p>
             <h1 className="max-w-3xl text-5xl font-semibold leading-[0.98] tracking-[-0.05em] text-white md:text-7xl">
               Signals Relay
@@ -57,6 +59,10 @@ export default function HomePage() {
               Convert CloudWatch Application Signals aws/spans log records into OTLP trace
               payloads and export them to an OTLP/HTTP backend with an inspectable serverless
               pipeline.
+            </p>
+            <p className="max-w-2xl rounded-md border border-amber-300/20 bg-amber-300/[0.08] px-3 py-2 text-sm leading-6 text-amber-100">
+              Use this as an evaluation path and review the hardening checklist before
+              production.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link
@@ -68,9 +74,9 @@ export default function HomePage() {
               </Link>
               <Link
                 className="inline-flex items-center justify-center gap-2 rounded-md border border-white/15 bg-white/[0.08] px-5 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/[0.14]"
-                href={docsHref("current-architecture")}
+                href={docsHref("troubleshooting")}
               >
-                Architecture
+                Troubleshooting
               </Link>
             </div>
             <div className="grid gap-3 pt-2 sm:grid-cols-3">
@@ -130,17 +136,17 @@ export default function HomePage() {
             <Boxes aria-hidden="true" className="h-5 w-5 text-[color:var(--signals-blue)]" />
             <h3 className="mt-3 font-semibold">Open the docs</h3>
             <p className="mt-2 text-sm leading-6 text-fd-muted-foreground">
-              Start from the generated documentation map.
+              Choose the guide that matches your task.
             </p>
           </Link>
           <Link
             className="group rounded-2xl border border-fd-border bg-fd-card p-6 transition hover:-translate-y-0.5 hover:border-[color:var(--signals-cyan-soft)] hover:shadow-sm"
-            href={docsHref("release")}
+            href={docsHref("troubleshooting")}
           >
-            <GitBranch aria-hidden="true" className="h-5 w-5 text-[color:var(--signals-green)]" />
-            <h3 className="mt-3 font-semibold">Maintain releases</h3>
+            <LifeBuoy aria-hidden="true" className="h-5 w-5 text-[color:var(--signals-green)]" />
+            <h3 className="mt-3 font-semibold">Troubleshoot an install</h3>
             <p className="mt-2 text-sm leading-6 text-fd-muted-foreground">
-              Review the SAR, GitHub Release, and CloudFormation artifact flow.
+              Verify stack outputs, span flow, export behavior, and failure queues.
             </p>
           </Link>
           <Link

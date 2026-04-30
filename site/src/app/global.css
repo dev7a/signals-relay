@@ -211,9 +211,9 @@ html > body[data-scroll-locked] {
 
 .relay-flow__routes {
   position: absolute;
-  inset: 6% 2% 3%;
-  width: 96%;
-  height: 91%;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   overflow: visible;
 }
 
@@ -425,30 +425,27 @@ html > body[data-scroll-locked] {
   }
 
   .hero-parallax__diagram {
-    width: 190%;
-    height: 108%;
-    object-position: 58% center;
-    transform: translate3d(calc(var(--hero-diagram-x) - 30%), var(--hero-diagram-y), 0) scale(1.03);
+    width: 150%;
+    height: 112%;
+    object-position: 62% center;
+    opacity: 1;
+    filter: saturate(0.9) brightness(0.96) contrast(1.08);
+    transform: translate3d(calc(var(--hero-diagram-x) - 16%), var(--hero-diagram-y), 0) scale(1.04);
   }
 
   .hero-parallax__shade {
     background:
-      linear-gradient(180deg, rgb(10 10 10 / 0.56) 0%, rgb(10 10 10 / 0.86) 58%, rgb(10 10 10 / 0.98) 100%),
-      linear-gradient(90deg, rgb(10 10 10 / 0.82) 0%, rgb(10 10 10 / 0.5) 100%);
+      linear-gradient(180deg, rgb(10 10 10 / 0.4) 0%, rgb(10 10 10 / 0.74) 58%, rgb(10 10 10 / 0.94) 100%),
+      linear-gradient(90deg, rgb(10 10 10 / 0.72) 0%, rgb(10 10 10 / 0.32) 100%);
   }
 
   .relay-flow {
-    min-height: 330px;
+    aspect-ratio: 1;
+    min-height: 0;
   }
 
   .relay-flow__metrics {
     display: none;
-  }
-
-  .relay-flow__routes {
-    inset: 3% -16% 0 -12%;
-    width: 128%;
-    height: 100%;
   }
 
   .relay-flow__node {
@@ -477,29 +474,29 @@ html > body[data-scroll-locked] {
   }
 
   .relay-flow__node--source {
-    left: 1%;
-    top: 40%;
+    left: 8%;
+    top: 31%;
   }
 
   .relay-flow__node--partitioner {
-    left: 22%;
-    top: 72%;
+    left: 8%;
+    top: 74%;
   }
 
   .relay-flow__node--stream {
-    left: 43%;
-    top: 72%;
+    left: 39%;
+    top: 74%;
   }
 
   .relay-flow__node--relay {
-    left: 64%;
-    top: 72%;
+    left: 70%;
+    top: 74%;
   }
 
   .relay-flow__node--otlp {
-    left: 81%;
-    top: 40%;
-    width: 68px;
+    left: 70%;
+    top: 31%;
+    width: 74px;
   }
 }
 

@@ -11,14 +11,18 @@ from pathlib import Path, PurePosixPath
 
 SOURCE_MAP = {
     PurePosixPath("docs/README.md"): PurePosixPath("index.mdx"),
+    PurePosixPath("docs/concepts.md"): PurePosixPath("concepts.mdx"),
     PurePosixPath("docs/install.md"): PurePosixPath("install.mdx"),
+    PurePosixPath("docs/troubleshooting.md"): PurePosixPath("troubleshooting.mdx"),
     PurePosixPath("docs/current-architecture.md"): PurePosixPath("current-architecture.mdx"),
     PurePosixPath("docs/release.md"): PurePosixPath("release.mdx"),
 }
 
 PAGE_ORDER = [
     "index",
+    "concepts",
     "install",
+    "troubleshooting",
     "current-architecture",
     "release",
 ]
@@ -40,6 +44,7 @@ SOURCE_LINK_OVERRIDES = {
     PurePosixPath(
         "docs/long-poller-sqs-delayed-task.md"
     ): "https://github.com/dev7a/signals-relay/blob/main/docs/long-poller-sqs-delayed-task.md",
+    PurePosixPath("site/README.md"): "https://github.com/dev7a/signals-relay/blob/main/site/README.md",
 }
 
 FENCE_RE = re.compile(r"(?ms)^[ \t]*```.*?^[ \t]*```[ \t]*\n?")

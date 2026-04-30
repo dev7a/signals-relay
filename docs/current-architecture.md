@@ -3,6 +3,8 @@
 This is the canonical architecture explanation for the implementation in this
 repository.
 
+For terminology and deployment inputs, start with [concepts.md](./concepts.md).
+
 ## Problem
 
 CloudWatch Application Signals writes span records to the `aws/spans` log group,
@@ -60,6 +62,15 @@ correctness is bounded by the active window.
 
 ## Export Modes
 
+| Topic | Direct mode | Collector mode |
+| --- | --- | --- |
+| Stack value | `ExportMode=direct` | `ExportMode=collector` |
+| Default | Yes | No |
+| Requires `CollectorExtensionArn` | No | Yes |
+| Shared secret consumer | Relay Lambda | OpenTelemetry Lambda collector extension config |
+| Local target | OTLP backend URL from the secret | `http://localhost:4318/v1/traces` |
+| Best fit | Simple evaluation and fewer moving parts | Environments that standardize on the collector extension |
+
 ### Direct
 
 `ExportMode=direct` is the default. The relay Lambda reads the shared
@@ -79,6 +90,10 @@ The secret uses this JSON shape:
 ```
 
 Direct mode enables gzip compression for outbound OTLP trace requests.
+
+The endpoint may be a base OTLP/HTTP endpoint such as `https://example.com`.
+Signals Relay resolves the trace export URL and appends `/v1/traces` when the
+configured path does not already end with `/v1/traces`.
 
 ### Collector
 
@@ -127,6 +142,18 @@ Use this architecture when you want a standalone AWS pipeline that converts
 Application Signals spans into OTLP and you are willing to accept
 window-bounded link reconciliation in exchange for predictable trace-based
 batching.
+
+## When Not To Use This Architecture
+
+Signals Relay may not be a good fit when:
+
+- you need production-ready guarantees without additional hardening
+- you cannot tolerate 60-second window-bounded reconciliation
+- you need durable reconciliation state across windows
+- you cannot operate Kinesis, Lambda failure queues, and CloudWatch alarms
+- your OTLP backend cannot absorb batched trace export
+- your source spans arrive too late or too sparsely for tumbling-window
+  reconciliation to be useful
 
 ## Design Background
 

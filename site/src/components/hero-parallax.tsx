@@ -46,8 +46,10 @@ export function HeroParallax() {
       const height = rect?.height || window.innerHeight || 1;
       const progress = rect ? Math.min(Math.max(-rect.top / height, 0), 1) : 0;
 
-      scrollShift = progress * 96;
-      gridShift = progress * 44;
+      const isMobile = window.matchMedia("(max-width: 767px)").matches;
+
+      scrollShift = progress * (isMobile ? 132 : 96);
+      gridShift = progress * (isMobile ? 64 : 44);
       applyOffsets();
     };
 

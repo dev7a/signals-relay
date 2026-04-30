@@ -5,6 +5,36 @@ Use this guide when you want to deploy, evaluate, or upgrade Signals Relay.
 For repository publication and release maintenance, see
 [release.md](./release.md).
 
+If the terms are new, read [concepts.md](./concepts.md) first. After deploying,
+use [troubleshooting.md](./troubleshooting.md) to verify the install.
+
+## Choose An Install Path
+
+| Install path | Use when | Needs source checkout? | Primary audience |
+| --- | --- | --- | --- |
+| GitHub Release quick launch | You want the CloudFormation console to pre-load a versioned launch template. | No | Operators and evaluators |
+| SAR console | You want to deploy the published SAR app directly. | No | Operators and evaluators |
+| SAM parent stack | You compose Signals Relay into a larger SAM or CloudFormation stack. | No | Platform and IaC teams |
+| AWS CDK | You compose the SAR app into a CDK app. | No | Platform and IaC teams |
+| Terraform | You manage the SAR app with Terraform. | No | Platform and IaC teams |
+| Source deployment | You need to inspect, modify, test, or publish the app yourself. | Yes | Maintainers and contributors |
+
+For the fastest evaluation, start with the GitHub Release quick-launch path.
+
+## Preflight Checklist
+
+Before opening a quick-launch link or deploying the SAR app, confirm:
+
+- you are deploying in `us-east-1` for the current SAR publication path
+- the target account can deploy the selected SAR application version
+- the source CloudWatch Logs log group exists; the default is `aws/spans`
+- the shared Secrets Manager secret exists in the target account and Region
+- your OTLP backend accepts OTLP/HTTP trace export
+- if using VPC deployment, selected subnets can reach Secrets Manager and the
+  OTLP destination over HTTPS
+- the deployer can create IAM roles, Lambda functions, Kinesis streams, SQS
+  queues, CloudWatch Logs subscription filters, and resource policies
+
 ## Prerequisites
 
 Signals Relay currently publishes a SAR application in `us-east-1`. Deploy from
@@ -34,6 +64,46 @@ The secret name must be `signals-relay/secrets/collector`. Both export modes
 use this same secret shape. In `direct` mode, the relay Lambda reads it at
 startup. In `collector` mode, the OpenTelemetry Lambda collector extension
 resolves it from the collector config.
+
+Headers are optional. In `direct` mode, Signals Relay appends `/v1/traces` to
+the endpoint when the configured path does not already end with `/v1/traces`.
+
+Create the secret with the AWS CLI:
+
+```bash
+aws secretsmanager create-secret \
+  --name signals-relay/secrets/collector \
+  --secret-string '{
+    "endpoint": "https://example.com",
+    "headers": {
+      "authorization": "Bearer REPLACE_ME"
+    }
+  }'
+```
+
+If the secret already exists, update it instead:
+
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id signals-relay/secrets/collector \
+  --secret-string '{
+    "endpoint": "https://example.com",
+    "headers": {
+      "authorization": "Bearer REPLACE_ME"
+    }
+  }'
+```
+
+## Parameter Reference
+
+| Parameter | Required | Default | Notes |
+| --- | --- | --- | --- |
+| `SpanLogGroupName` | Yes | `aws/spans` | Must name an existing CloudWatch Logs log group. |
+| `ExportMode` | Yes | `direct` | Use `direct` or `collector`. |
+| `CollectorExtensionArn` | Collector mode only | empty | Required when `ExportMode=collector`; must match target Region and architecture. |
+| `DeploymentId` | No | empty | Change to force fresh Lambda environments after secret rotation or other startup-time config changes. |
+| `VpcId` | VPC launch only | empty | Existing VPC for the relay Lambda. |
+| `SubnetIds` | VPC launch only | empty | Existing subnets with HTTPS egress to Secrets Manager and the OTLP destination. |
 
 ## Install From GitHub Release Quick Launch
 
@@ -279,6 +349,34 @@ Set `SIGNALS_RELAY_REGION` when local deployment should target a Region other
 than `us-east-1`. The generated `default` and `collector` profiles inherit that
 Region, while `public_publish` remains pinned to `us-east-1` for the current
 SAR publication path.
+
+## Verify The Install
+
+After deployment:
+
+1. Confirm the CloudFormation stack is `CREATE_COMPLETE` or `UPDATE_COMPLETE`.
+2. Open the stack outputs and note the partitioner Lambda, relay Lambda, Kinesis
+   stream, and failure queue URLs.
+3. Confirm the subscription filter exists on the source log group.
+4. Emit or wait for Application Signals spans in the source account and Region.
+5. Watch partitioner and relay Lambda logs during span emission.
+6. Confirm the relay reports exports and no recurring OTLP export failures.
+7. Confirm both failure queues remain empty during normal traffic.
+
+For detailed failure diagnosis, see [troubleshooting.md](./troubleshooting.md).
+
+## Production-Hardening Checklist
+
+Signals Relay is experimental. Before production use, review:
+
+- Kinesis shard count, throughput, retention, and cost
+- CloudWatch alarms for Lambda errors, throttles, duration, and iterator age
+- failure queue alerting, inspection, and replay procedures
+- VPC egress to Secrets Manager and the OTLP backend
+- secret rotation and `DeploymentId` refresh behavior
+- OTLP backend authentication, rate limits, and rejected-payload behavior
+- whether 60-second window-bounded reconciliation fits your trace correctness
+  requirements
 
 ## Upgrade An Existing Install
 
