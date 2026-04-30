@@ -11,6 +11,7 @@ export function HeroParallax() {
     if (!root) return;
 
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const mobileMedia = window.matchMedia("(max-width: 767px)");
     let frame = 0;
     let scrollShift = 0;
     let gridShift = 0;
@@ -46,7 +47,7 @@ export function HeroParallax() {
       const height = rect?.height || window.innerHeight || 1;
       const progress = rect ? Math.min(Math.max(-rect.top / height, 0), 1) : 0;
 
-      const isMobile = window.matchMedia("(max-width: 767px)").matches;
+      const isMobile = mobileMedia.matches;
 
       scrollShift = progress * (isMobile ? 132 : 96);
       gridShift = progress * (isMobile ? 64 : 44);
@@ -89,6 +90,7 @@ export function HeroParallax() {
     window.addEventListener("resize", requestUpdate);
     window.addEventListener("pointermove", onPointerMove, { passive: true });
     media.addEventListener("change", requestUpdate);
+    mobileMedia.addEventListener("change", requestUpdate);
 
     return () => {
       if (frame !== 0) window.cancelAnimationFrame(frame);
@@ -96,6 +98,7 @@ export function HeroParallax() {
       window.removeEventListener("resize", requestUpdate);
       window.removeEventListener("pointermove", onPointerMove);
       media.removeEventListener("change", requestUpdate);
+      mobileMedia.removeEventListener("change", requestUpdate);
     };
   }, []);
 
