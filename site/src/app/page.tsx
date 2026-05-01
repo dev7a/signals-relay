@@ -54,7 +54,7 @@ export default function HomePage() {
           ))}
         </nav>
         <details className="home-topbar__menu">
-          <summary aria-label="Open navigation menu" className="home-topbar__menu-trigger">
+          <summary aria-label="Toggle navigation menu" className="home-topbar__menu-trigger">
             <Menu aria-hidden="true" className="h-5 w-5" />
           </summary>
           <nav aria-label="Mobile primary" className="home-topbar__menu-panel">

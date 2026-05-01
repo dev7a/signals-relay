@@ -28,7 +28,7 @@ target account must be allowed to deploy the selected SAR version through
 account, organization, or public sharing. You only need a source checkout when
 you want to inspect, modify, or publish the application yourself.
 
-### When Signals Relay Is Not A Fit
+### When Signals Relay Is Not a Fit
 
 Signals Relay may not be the right tool when:
 
