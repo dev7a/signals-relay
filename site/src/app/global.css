@@ -60,6 +60,7 @@ html > body[data-scroll-locked] {
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 
 .home-topbar__links {
@@ -81,6 +82,73 @@ html > body[data-scroll-locked] {
 }
 
 .home-topbar__links a:hover {
+  background: rgb(255 255 255 / 0.08);
+  color: white;
+}
+
+.home-topbar__menu {
+  display: none;
+  position: relative;
+}
+
+.home-topbar__menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgb(255 255 255 / 0.15);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.08);
+  color: white;
+  cursor: pointer;
+  list-style: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.home-topbar__menu-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.home-topbar__menu-trigger::marker {
+  content: "";
+}
+
+.home-topbar__menu[open] > .home-topbar__menu-trigger {
+  background: rgb(255 255 255 / 0.18);
+}
+
+.home-topbar__menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 14px;
+  background: rgb(10 10 10 / 0.94);
+  padding: 6px;
+  box-shadow: 0 18px 60px rgb(0 0 0 / 0.5);
+  backdrop-filter: blur(18px);
+}
+
+.home-topbar__menu-panel a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  border-radius: 8px;
+  color: rgb(229 231 235 / 0.85);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 10px 14px;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.home-topbar__menu-panel a:hover {
   background: rgb(255 255 255 / 0.08);
   color: white;
 }
@@ -406,6 +474,16 @@ html > body[data-scroll-locked] {
   }
 }
 
+@media (max-width: 899px) {
+  .home-topbar__links {
+    display: none;
+  }
+
+  .home-topbar__menu {
+    display: block;
+  }
+}
+
 @media (max-width: 767px) {
   .signals-hero {
     min-height: 760px;
@@ -418,10 +496,6 @@ html > body[data-scroll-locked] {
 
   .home-topbar__brand {
     padding-inline: 4px;
-  }
-
-  .home-topbar__links {
-    display: none;
   }
 
   .hero-parallax__diagram {
@@ -497,6 +571,22 @@ html > body[data-scroll-locked] {
     left: 70%;
     top: 31%;
     width: 74px;
+  }
+}
+
+@media (max-width: 420px) {
+  .home-topbar {
+    width: calc(100% - 16px);
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .home-topbar__brand {
+    padding-inline: 2px;
+  }
+
+  .home-actions__github-label {
+    display: none;
   }
 }
 

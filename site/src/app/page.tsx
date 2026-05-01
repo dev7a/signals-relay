@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Boxes, LifeBuoy, RadioTower } from "lucide-react";
+import { ArrowRight, BookOpen, Menu, RadioTower, Stethoscope, Workflow } from "lucide-react";
 import { HeroParallax } from "@/components/hero-parallax";
 import { HomeActions } from "@/components/home-actions";
 import { RelayFlowDiagram } from "@/components/relay-flow-diagram";
@@ -13,18 +13,29 @@ const pipeline = [
   "Relay Lambda exports OTLP over direct or collector mode",
 ];
 
-const fit = [
+const navLinks: Array<{ href: string; label: string }> = [
+  { href: docsHref("concepts"), label: "Concepts" },
+  { href: docsHref("install"), label: "Install" },
+  { href: docsHref("current-architecture"), label: "Architecture" },
+  { href: docsHref("troubleshooting"), label: "Troubleshooting" },
+  { href: docsHref(), label: "Docs" },
+];
+
+const fit: Array<{ title: string; body: string; href: string }> = [
   {
     title: "Evaluate Application Signals export",
     body: "Use the SAR app or quick-launch CloudFormation wrappers to test a standalone AWS path.",
+    href: docsHref("install"),
   },
   {
     title: "Follow a broader operator path",
     body: "Concepts, install, verification, and troubleshooting docs cover the full evaluation loop.",
+    href: docsHref(),
   },
   {
     title: "Understand the tradeoffs",
-    body: "The architecture guide explains the partitioner, Kinesis stream, tumbling window, and export modes.",
+    body: "The architecture guide covers the partitioner, Kinesis stream, tumbling window, and export modes.",
+    href: docsHref("current-architecture"),
   },
 ];
 
@@ -36,12 +47,24 @@ export default function HomePage() {
           Signals Relay
         </Link>
         <nav aria-label="Primary" className="home-topbar__links">
-          <Link href={docsHref("concepts")}>Concepts</Link>
-          <Link href={docsHref("install")}>Install</Link>
-          <Link href={docsHref("current-architecture")}>Architecture</Link>
-          <Link href={docsHref("troubleshooting")}>Troubleshooting</Link>
-          <Link href={docsHref()}>Docs</Link>
+          {navLinks.map(({ href, label }) => (
+            <Link href={href} key={href}>
+              {label}
+            </Link>
+          ))}
         </nav>
+        <details className="home-topbar__menu">
+          <summary aria-label="Toggle navigation menu" className="home-topbar__menu-trigger">
+            <Menu aria-hidden="true" className="h-5 w-5" />
+          </summary>
+          <nav aria-label="Mobile primary" className="home-topbar__menu-panel">
+            {navLinks.map(({ href, label }) => (
+              <Link href={href} key={href}>
+                {label}
+              </Link>
+            ))}
+          </nav>
+        </details>
         <HomeActions githubUrl={githubUrl} />
       </div>
 
@@ -49,20 +72,29 @@ export default function HomePage() {
         <HeroParallax />
         <div className="relative mx-auto flex min-h-[inherit] w-full max-w-7xl items-center px-6 pb-20 pt-32 md:px-10 md:pb-24 md:pt-36 lg:px-12">
           <div className="max-w-3xl space-y-6">
-            <p className="inline-flex rounded-md border border-white/15 bg-white/[0.08] px-3 py-1.5 text-sm font-semibold text-neutral-300 shadow-sm shadow-black/20 backdrop-blur">
-              AWS serverless OTLP relay - v{signalsRelayVersion}
+            <p className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-white/15 bg-white/[0.08] px-3 py-1.5 text-sm font-semibold text-neutral-300 shadow-sm shadow-black/20 backdrop-blur">
+              <span>Signals Relay</span>
+              <span aria-hidden="true" className="text-neutral-500">·</span>
+              <span className="font-mono text-xs text-neutral-200">v{signalsRelayVersion}</span>
+              <span aria-hidden="true" className="text-neutral-500">·</span>
+              <span className="inline-flex items-center gap-1.5 text-amber-200">
+                <span aria-hidden="true" className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-amber-300/75 motion-safe:animate-ping" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-300" />
+                </span>
+                Beta
+              </span>
             </p>
-            <h1 className="max-w-3xl text-5xl font-semibold leading-[0.98] tracking-[-0.05em] text-white md:text-7xl">
-              Signals Relay
+            <h1 className="max-w-3xl text-4xl font-semibold leading-[1.05] tracking-[-0.04em] text-white sm:text-5xl md:text-6xl lg:text-7xl lg:leading-[1.0] lg:tracking-[-0.05em]">
+              Send AWS Application Signals to any OTLP backend.
             </h1>
             <p className="max-w-2xl text-lg leading-8 text-neutral-300 lg:text-xl">
-              Convert CloudWatch Application Signals aws/spans log records into OTLP trace
-              payloads and export them to an OTLP/HTTP backend with an inspectable serverless
-              pipeline.
-            </p>
-            <p className="max-w-2xl rounded-md border border-amber-300/20 bg-amber-300/[0.08] px-3 py-2 text-sm leading-6 text-amber-100">
-              Use this as an evaluation path and review the hardening checklist before
-              production.
+              A serverless AWS pipeline that converts{" "}
+              <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-base text-neutral-100">
+                aws/spans
+              </code>{" "}
+              log records into OTLP traces and ships them to Honeycomb, Datadog, Grafana Tempo,
+              New Relic, or any OTLP/HTTP endpoint.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link
@@ -74,19 +106,39 @@ export default function HomePage() {
               </Link>
               <Link
                 className="inline-flex items-center justify-center gap-2 rounded-md border border-white/15 bg-white/[0.08] px-5 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/[0.14]"
-                href={docsHref("troubleshooting")}
+                href={docsHref("current-architecture")}
               >
-                Troubleshooting
+                How it works
               </Link>
             </div>
             <div className="grid gap-3 pt-2 sm:grid-cols-3">
-              {fit.map(({ title, body }) => (
-                <article className="rounded-xl border border-white/10 bg-black/[0.18] px-4 py-4 backdrop-blur-sm" key={title}>
-                  <h2 className="text-sm font-semibold text-white">{title}</h2>
+              {fit.map(({ title, body, href }) => (
+                <Link
+                  className="group rounded-xl border border-white/10 bg-black/[0.18] px-4 py-4 backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-white/25 hover:bg-black/[0.32]"
+                  href={href}
+                  key={title}
+                >
+                  <h2 className="flex items-center gap-1.5 text-sm font-semibold text-white">
+                    {title}
+                    <ArrowRight
+                      aria-hidden="true"
+                      className="h-3.5 w-3.5 -translate-x-1 opacity-0 transition group-hover:translate-x-0 group-hover:opacity-80"
+                    />
+                  </h2>
                   <p className="mt-1 text-sm leading-6 text-slate-200/75">{body}</p>
-                </article>
+                </Link>
               ))}
             </div>
+            <p className="max-w-2xl pt-1 text-xs leading-6 text-neutral-400">
+              Beta — run it in dev or staging today, then review the{" "}
+              <Link
+                className="text-neutral-200 underline decoration-neutral-500 underline-offset-2 transition hover:text-white hover:decoration-neutral-300"
+                href={`${docsHref("install")}#production-hardening-checklist`}
+              >
+                hardening checklist
+              </Link>{" "}
+              before production.
+            </p>
           </div>
         </div>
       </section>
@@ -133,7 +185,7 @@ export default function HomePage() {
             className="group rounded-2xl border border-fd-border bg-fd-card p-6 transition hover:-translate-y-0.5 hover:border-[color:var(--signals-cyan-soft)] hover:shadow-sm"
             href={docsHref()}
           >
-            <Boxes aria-hidden="true" className="h-5 w-5 text-[color:var(--signals-blue)]" />
+            <BookOpen aria-hidden="true" className="h-5 w-5 text-[color:var(--signals-blue)]" />
             <h3 className="mt-3 font-semibold">Open the docs</h3>
             <p className="mt-2 text-sm leading-6 text-fd-muted-foreground">
               Choose the guide that matches your task.
@@ -143,7 +195,7 @@ export default function HomePage() {
             className="group rounded-2xl border border-fd-border bg-fd-card p-6 transition hover:-translate-y-0.5 hover:border-[color:var(--signals-cyan-soft)] hover:shadow-sm"
             href={docsHref("troubleshooting")}
           >
-            <LifeBuoy aria-hidden="true" className="h-5 w-5 text-[color:var(--signals-green)]" />
+            <Stethoscope aria-hidden="true" className="h-5 w-5 text-[color:var(--signals-green)]" />
             <h3 className="mt-3 font-semibold">Troubleshoot an install</h3>
             <p className="mt-2 text-sm leading-6 text-fd-muted-foreground">
               Verify stack outputs, span flow, export behavior, and failure queues.
@@ -153,7 +205,7 @@ export default function HomePage() {
             className="group rounded-2xl border border-fd-border bg-fd-card p-6 transition hover:-translate-y-0.5 hover:border-[color:var(--signals-cyan-soft)] hover:shadow-sm"
             href={docsHref("current-architecture")}
           >
-            <RadioTower aria-hidden="true" className="h-5 w-5 text-[color:var(--signals-amber)]" />
+            <Workflow aria-hidden="true" className="h-5 w-5 text-[color:var(--signals-amber)]" />
             <h3 className="mt-3 font-semibold">Review architecture</h3>
             <p className="mt-2 text-sm leading-6 text-fd-muted-foreground">
               Understand the partitioner, stream, relay window, and export modes.
@@ -168,17 +220,24 @@ export default function HomePage() {
           <div>
             <h2 className="text-xl font-semibold tracking-normal">Ready to evaluate the relay?</h2>
             <p className="mt-2 text-sm text-fd-muted-foreground">
-              Start with the install guide, then verify the architecture assumptions for your
-              account.
+              Deploy a versioned release in CloudFormation, or read the architecture guide first.
             </p>
           </div>
-          <Link
-            className="inline-flex items-center justify-center gap-2 rounded-md border border-fd-border bg-fd-background px-4 py-2.5 text-sm font-medium transition hover:bg-fd-muted"
-            href={docsHref("install")}
-          >
-            <RadioTower aria-hidden="true" className="h-4 w-4" />
-            Deploy from a release
-          </Link>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-fd-foreground px-4 py-2.5 text-sm font-semibold text-fd-background shadow-sm transition hover:bg-fd-foreground/90"
+              href={docsHref("install")}
+            >
+              <RadioTower aria-hidden="true" className="h-4 w-4" />
+              Deploy from a release
+            </Link>
+            <Link
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-fd-border bg-fd-background px-4 py-2.5 text-sm font-medium transition hover:bg-fd-muted"
+              href={docsHref("current-architecture")}
+            >
+              Read the architecture guide
+            </Link>
+          </div>
         </div>
       </section>
     </main>

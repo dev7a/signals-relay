@@ -1,17 +1,23 @@
 # Signals Relay
 
-Signals Relay is an experimental AWS serverless pipeline that converts
-CloudWatch Application Signals `aws/spans` log records into OTLP trace payloads
-and exports them to an OTLP/HTTP backend.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](./LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/dev7a/signals-relay?include_prereleases&label=release&style=flat)](https://github.com/dev7a/signals-relay/releases)
+[![Last commit](https://img.shields.io/github/last-commit/dev7a/signals-relay?style=flat)](https://github.com/dev7a/signals-relay/commits/main)
+
+Send AWS Application Signals to any OTLP backend. Signals Relay is a
+serverless AWS pipeline that converts CloudWatch Application Signals
+`aws/spans` log records into OTLP traces and ships them to Honeycomb, Datadog,
+Grafana Tempo, New Relic, or any OTLP/HTTP endpoint.
 
 > [!NOTE]
-> This repository is experimental and is not recommended for production use
-> without additional hardening.
+> Signals Relay is in beta. Run it in dev or staging today, then review the
+> [production-hardening checklist](./docs/install.md#production-hardening-checklist)
+> before you ship.
 
 ## Who Should Use This
 
-Use Signals Relay when you want to evaluate a standalone AWS path for exporting
-Application Signals spans to an OTLP backend, and you are comfortable operating
+Use Signals Relay when you want a native AWS path for exporting Application
+Signals spans into an OpenTelemetry backend, and you are comfortable operating
 an event-driven pipeline built from CloudWatch Logs, Lambda, Kinesis, SQS, and
 Secrets Manager.
 
@@ -21,6 +27,23 @@ each [GitHub Release](https://github.com/dev7a/signals-relay/releases). The
 target account must be allowed to deploy the selected SAR version through
 account, organization, or public sharing. You only need a source checkout when
 you want to inspect, modify, or publish the application yourself.
+
+### When Signals Relay Is Not a Fit
+
+Signals Relay may not be the right tool when:
+
+- you need production-ready guarantees today without additional hardening
+- you cannot tolerate 60-second window-bounded reconciliation for managed-link
+  decorators
+- you need durable reconciliation state that spans more than one tumbling
+  window
+- you cannot operate Kinesis, Lambda failure queues, and CloudWatch alarms
+- your OTLP backend cannot absorb batched trace export
+- your source spans arrive too sparsely for tumbling-window reconciliation to
+  be useful
+
+See the [current architecture guide](./docs/current-architecture.md) for the
+full set of tradeoffs.
 
 ## Fastest Install Path
 
