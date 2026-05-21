@@ -126,7 +126,8 @@
       a.href = dataUrl;
       a.click();
     } catch (e) {
-      alert('Export failed: ' + e.message);
+      const message = e instanceof Error ? e.message : String(e);
+      alert('Export failed: ' + message);
     }
   });
 </script>

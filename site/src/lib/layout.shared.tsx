@@ -2,7 +2,7 @@ import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
 import { githubUrl } from "@/lib/shared";
 
 function NavMark() {
-  const gold = "#c8a44a";
+  const gold = "var(--signals-gold)";
   return (
     <svg aria-hidden="true" height="22" viewBox="0 0 64 64" width="22">
       <rect fill="#0e0d0a" height="64" rx="11" width="64" x="0" y="0" />

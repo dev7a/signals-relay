@@ -147,7 +147,7 @@ export default function HomePage() {
                 <span className="editorial-hero__pill">in beta</span>
               </div>
               <h1 className="editorial-hero__title">
-                Send <em>any</em> AWS Application Signal traces{" "}
+                Send <em>any</em> AWS Application Signals traces{" "}
                 <span className="editorial-hero__amp">&amp;</span> ship it to any OTLP backend.
               </h1>
               <p className="editorial-hero__sub">
