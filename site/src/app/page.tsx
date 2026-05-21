@@ -136,6 +136,7 @@ export default function HomePage() {
     <div className="editorial">
       <EditorialMasthead activeHref="/" navLinks={navLinks} />
 
+      <main>
       <section className="editorial-hero">
         <div className="editorial-hero__bp" aria-hidden="true" />
         <div className="editorial-wrap">
@@ -243,6 +244,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      </main>
 
       <footer className="editorial-colophon">
         <div className="editorial-wrap">
