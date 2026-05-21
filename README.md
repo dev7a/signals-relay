@@ -2,7 +2,6 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](./LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/dev7a/signals-relay?include_prereleases&label=release&style=flat)](https://github.com/dev7a/signals-relay/releases)
-[![Last commit](https://img.shields.io/github/last-commit/dev7a/signals-relay?style=flat)](https://github.com/dev7a/signals-relay/commits/main)
 
 Send AWS Application Signals to any OTLP backend. Signals Relay is a
 serverless AWS pipeline that converts CloudWatch Application Signals
