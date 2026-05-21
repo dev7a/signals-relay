@@ -3,7 +3,7 @@ import { ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { EditorialMasthead } from "@/components/editorial-masthead";
 import { SchematicDiagram } from "@/components/schematic-diagram";
-import { docsHref, githubUrl, signalsRelayVersion } from "@/lib/shared";
+import { docsHref, githubUrl, signalsRelayVersion, siteEditionLabel } from "@/lib/shared";
 
 const navLinks: Array<{ href: string; label: string }> = [
   { href: "/", label: "Overview" },
@@ -131,14 +131,6 @@ const colophonProject: Array<{ href: string; label: string; external?: boolean }
   { href: `${githubUrl}/blob/main/LICENSE`, label: "License (MIT)", external: true },
 ];
 
-const editionDate = (() => {
-  const d = new Date();
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}.${m}.${day}`;
-})();
-
 export default function HomePage() {
   return (
     <div className="editorial">
@@ -151,7 +143,7 @@ export default function HomePage() {
             <div className="editorial-hero__col">
               <div className="editorial-hero__meta">
                 <span>edition</span>
-                <b>{editionDate}</b>
+                <b>{siteEditionLabel}</b>
                 <span className="editorial-hero__pill">in beta</span>
               </div>
               <h1 className="editorial-hero__title">

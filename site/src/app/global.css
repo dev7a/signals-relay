@@ -599,9 +599,12 @@ html > body[data-scroll-locked] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .schematic__hum,
-  .schematic__flow * {
+  .schematic__hum {
     animation: none !important;
+  }
+
+  .schematic__flow {
+    display: none;
   }
 }
 
@@ -1182,9 +1185,10 @@ article#nd-page li {
 /* Fumadocs nav (docs pages) — newspaper masthead vibe */
 header#nd-nav,
 header#nd-subnav {
-  background: rgb(11 10 8 / 0.86);
+  background: var(--signals-masthead-bg);
   backdrop-filter: blur(14px);
   border-color: var(--signals-line);
+  color: var(--signals-text);
 }
 
 #nd-nav .text-fd-foreground,

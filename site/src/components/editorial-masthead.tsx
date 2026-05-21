@@ -1,15 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { githubUrl, signalsRelayVersion } from "@/lib/shared";
-
-const editionLabel = (() => {
-  const d = new Date();
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}.${m}.${day}`;
-})();
+import { githubUrl, signalsRelayVersion, siteEditionLabel } from "@/lib/shared";
 
 function SignalsMark() {
   return (
@@ -55,7 +47,7 @@ export function EditorialMasthead({
           <div className="masthead__left">
             <span>signalsrelay.dev</span>
             <span aria-hidden="true" className="masthead__dot">·</span>
-            <span>edition {editionLabel}</span>
+            <span>edition {siteEditionLabel}</span>
           </div>
           <Link aria-label="Signals Relay home" className="masthead__title" href="/">
             <SignalsMark />
