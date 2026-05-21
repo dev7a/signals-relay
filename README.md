@@ -8,6 +8,13 @@ serverless AWS pipeline that converts CloudWatch Application Signals
 `aws/spans` log records into OTLP traces and ships them to Honeycomb, Datadog,
 Grafana Tempo, New Relic, or any OTLP/HTTP endpoint.
 
+<div align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./svgs/architecture-flow-dark.svg">
+  <img src="./svgs/architecture-flow-light.svg" alt="Animated Signals Relay trace pipeline">
+</picture>
+</div>
+
 > [!NOTE]
 > Signals Relay is in beta. Run it in dev or staging today, then review the
 > [production-hardening checklist](./docs/install.md#production-hardening-checklist)
