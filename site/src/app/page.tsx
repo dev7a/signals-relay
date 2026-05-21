@@ -1,19 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, Menu, RadioTower, Stethoscope, Workflow } from "lucide-react";
-import { HeroParallax } from "@/components/hero-parallax";
-import { HomeActions } from "@/components/home-actions";
-import { RelayFlowDiagram } from "@/components/relay-flow-diagram";
-import { SectionKicker } from "@/components/section-kicker";
+import { ArrowRight } from "lucide-react";
+import type { ReactNode } from "react";
+import { EditorialMasthead } from "@/components/editorial-masthead";
+import { SchematicDiagram } from "@/components/schematic-diagram";
 import { docsHref, githubUrl, signalsRelayVersion } from "@/lib/shared";
 
-const pipeline = [
-  "CloudWatch Logs subscription on aws/spans",
-  "Partitioner Lambda republishes records with traceId keys",
-  "Kinesis buffers spans into trace-aligned lanes",
-  "Relay Lambda exports OTLP over direct or collector mode",
-];
-
 const navLinks: Array<{ href: string; label: string }> = [
+  { href: "/", label: "Overview" },
   { href: docsHref("concepts"), label: "Concepts" },
   { href: docsHref("install"), label: "Install" },
   { href: docsHref("current-architecture"), label: "Architecture" },
@@ -21,225 +14,309 @@ const navLinks: Array<{ href: string; label: string }> = [
   { href: docsHref(), label: "Docs" },
 ];
 
-const fit: Array<{ title: string; body: string; href: string }> = [
+const indexEntries: Array<{ num: string; title: string; description: string; href: string }> = [
   {
-    title: "Evaluate Application Signals export",
-    body: "Use the SAR app or quick-launch CloudFormation wrappers to test a standalone AWS path.",
+    num: "¶ 01",
+    title: "Concepts",
+    description: "Glossary, export modes, secret contract, and inputs.",
+    href: docsHref("concepts"),
+  },
+  {
+    num: "¶ 02",
+    title: "Install",
+    description: "From a Release, via SAR, IaC, or built from source.",
     href: docsHref("install"),
   },
   {
-    title: "Follow a broader operator path",
-    body: "Concepts, install, verification, and troubleshooting docs cover the full evaluation loop.",
-    href: docsHref(),
+    num: "¶ 03",
+    title: "Architecture",
+    description: "Partitioner, Kinesis, tumbling window, export modes.",
+    href: docsHref("current-architecture"),
   },
   {
-    title: "Understand the tradeoffs",
-    body: "The architecture guide covers the partitioner, Kinesis stream, tumbling window, and export modes.",
-    href: docsHref("current-architecture"),
+    num: "¶ 04",
+    title: "Troubleshooting",
+    description: "Verify deploys, diagnose missing spans, failure queues.",
+    href: docsHref("troubleshooting"),
   },
 ];
 
+const pipelineSteps: Array<{ num: string; label: ReactNode; tag: string }> = [
+  {
+    num: "¶ 01",
+    label: (
+      <>
+        CloudWatch Logs subscription on <em>aws/spans</em>
+      </>
+    ),
+    tag: "source",
+  },
+  {
+    num: "¶ 02",
+    label: (
+      <>
+        Partitioner λ republishes records with <em>traceId</em> keys
+      </>
+    ),
+    tag: "lambda",
+  },
+  {
+    num: "¶ 03",
+    label: (
+      <>
+        Kinesis buffers spans into <em>trace-aligned</em> lanes
+      </>
+    ),
+    tag: "stream",
+  },
+  {
+    num: "¶ 04",
+    label: (
+      <>
+        Relay λ exports OTLP — <em>direct</em> or <em>collector</em> mode
+      </>
+    ),
+    tag: "export",
+  },
+];
+
+const imprintBackends: Array<{ name: string; icon: ReactNode }> = [
+  {
+    name: "Honeycomb",
+    icon: (
+      <svg aria-hidden="true" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M12 2l8 4.6v8.8L12 20l-8-4.6V6.6L12 2zm0 2.3L6 7.7v6.6l6 3.4 6-3.4V7.7l-6-3.4z" />
+      </svg>
+    ),
+  },
+  {
+    name: "Datadog",
+    icon: (
+      <svg aria-hidden="true" fill="currentColor" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+      </svg>
+    ),
+  },
+  {
+    name: "Grafana Tempo",
+    icon: (
+      <svg aria-hidden="true" fill="currentColor" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 6v6l4 2" fill="none" stroke="#0e0d0a" strokeLinecap="round" strokeWidth="2.2" />
+      </svg>
+    ),
+  },
+  {
+    name: "New Relic",
+    icon: (
+      <svg aria-hidden="true" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M12 2L3 7v10l9 5 9-5V7l-9-5z" />
+      </svg>
+    ),
+  },
+  {
+    name: "Any OTLP/HTTP",
+    icon: (
+      <svg aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v10M7 12h10" />
+      </svg>
+    ),
+  },
+];
+
+const colophonProject: Array<{ href: string; label: string; external?: boolean }> = [
+  { href: githubUrl, label: "GitHub", external: true },
+  { href: `${githubUrl}/releases`, label: "Releases", external: true },
+  { href: `${githubUrl}/blob/main/LICENSE`, label: "License (MIT)", external: true },
+];
+
+const editionDate = (() => {
+  const d = new Date();
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}.${m}.${day}`;
+})();
+
 export default function HomePage() {
   return (
-    <main className="min-h-screen">
-      <div className="home-topbar">
-        <Link aria-label="Signals Relay home" className="home-topbar__brand" href="/">
-          Signals Relay
-        </Link>
-        <nav aria-label="Primary" className="home-topbar__links">
-          {navLinks.map(({ href, label }) => (
-            <Link href={href} key={href}>
-              {label}
-            </Link>
-          ))}
-        </nav>
-        <details className="home-topbar__menu">
-          <summary aria-label="Toggle navigation menu" className="home-topbar__menu-trigger">
-            <Menu aria-hidden="true" className="h-5 w-5" />
-          </summary>
-          <nav aria-label="Mobile primary" className="home-topbar__menu-panel">
-            {navLinks.map(({ href, label }) => (
-              <Link href={href} key={href}>
-                {label}
+    <div className="editorial">
+      <EditorialMasthead activeHref="/" navLinks={navLinks} />
+
+      <section className="editorial-hero">
+        <div className="editorial-hero__bp" aria-hidden="true" />
+        <div className="editorial-wrap">
+          <div className="editorial-hero__row">
+            <div className="editorial-hero__col">
+              <div className="editorial-hero__meta">
+                <span>edition</span>
+                <b>{editionDate}</b>
+                <span className="editorial-hero__pill">in beta</span>
+              </div>
+              <h1 className="editorial-hero__title">
+                Send <em>any</em> AWS Application Signal traces{" "}
+                <span className="editorial-hero__amp">&amp;</span> ship it to any OTLP backend.
+              </h1>
+              <p className="editorial-hero__sub">
+                A serverless AWS pipeline that turns <code>aws/spans</code> log records into OTLP
+                traces and delivers them to Honeycomb, Datadog, Grafana Tempo, New Relic — or any
+                OTLP/HTTP endpoint of your choosing.
+              </p>
+              <div className="editorial-hero__cta">
+                <Link className="editorial-btn-paper" href={docsHref("install")}>
+                  Install guide
+                  <ArrowRight aria-hidden="true" />
+                </Link>
+                <Link className="editorial-btn-link" href={docsHref("current-architecture")}>
+                  Read the architecture
+                  <ArrowRight aria-hidden="true" />
+                </Link>
+              </div>
+            </div>
+            <SchematicDiagram />
+          </div>
+        </div>
+      </section>
+
+      <section className="editorial-index">
+        <div className="editorial-wrap">
+          <div className="editorial-index__row">
+            {indexEntries.map((entry) => (
+              <Link className="editorial-index__cell" href={entry.href} key={entry.num}>
+                <span className="editorial-index__num">{entry.num}</span>
+                <h3 className="editorial-index__title">{entry.title}</h3>
+                <p className="editorial-index__desc">{entry.description}</p>
               </Link>
             ))}
-          </nav>
-        </details>
-        <HomeActions githubUrl={githubUrl} />
-      </div>
+          </div>
+        </div>
+      </section>
 
-      <section className="signals-hero relative isolate overflow-hidden border-b border-neutral-800 bg-neutral-950 text-white">
-        <HeroParallax />
-        <div className="relative mx-auto flex min-h-[inherit] w-full max-w-7xl items-center px-6 pb-20 pt-32 md:px-10 md:pb-24 md:pt-36 lg:px-12">
-          <div className="max-w-3xl space-y-6">
-            <p className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-white/15 bg-white/[0.08] px-3 py-1.5 text-sm font-semibold text-neutral-300 shadow-sm shadow-black/20 backdrop-blur">
-              <span>Signals Relay</span>
-              <span aria-hidden="true" className="text-neutral-500">·</span>
-              <span className="font-mono text-xs text-neutral-200">v{signalsRelayVersion}</span>
-              <span aria-hidden="true" className="text-neutral-500">·</span>
-              <span className="inline-flex items-center gap-1.5 text-amber-200">
-                <span aria-hidden="true" className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full rounded-full bg-amber-300/75 motion-safe:animate-ping" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-300" />
-                </span>
-                Beta
-              </span>
-            </p>
-            <h1 className="max-w-3xl text-4xl font-semibold leading-[1.05] tracking-[-0.04em] text-white sm:text-5xl md:text-6xl lg:text-7xl lg:leading-[1.0] lg:tracking-[-0.05em]">
-              Send AWS Application Signals to any OTLP backend.
-            </h1>
-            <p className="max-w-2xl text-lg leading-8 text-neutral-300 lg:text-xl">
-              A serverless AWS pipeline that converts{" "}
-              <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-base text-neutral-100">
-                aws/spans
-              </code>{" "}
-              log records into OTLP traces and ships them to Honeycomb, Datadog, Grafana Tempo,
-              New Relic, or any OTLP/HTTP endpoint.
-            </p>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Link
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-white px-5 py-2.5 text-sm font-semibold text-neutral-950 shadow-lg shadow-black/30 transition hover:bg-neutral-100"
-                href={docsHref("install")}
-              >
-                Install guide
-                <ArrowRight aria-hidden="true" className="h-4 w-4" />
-              </Link>
-              <Link
-                className="inline-flex items-center justify-center gap-2 rounded-md border border-white/15 bg-white/[0.08] px-5 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/[0.14]"
-                href={docsHref("current-architecture")}
-              >
-                How it works
-              </Link>
+      <section className="editorial-article">
+        <div className="editorial-wrap">
+          <div className="editorial-article__row">
+            <aside className="editorial-article__kicker">
+              <small>§ Runtime shape</small>
+              <h3>Trace-aligned buffering, instead of log-batched chaos.</h3>
+            </aside>
+            <div>
+              <p className="editorial-article__lede">
+                Signals Relay trades a little latency for control over <em>grouping</em>,{" "}
+                <em>batching</em>, and <em>export</em> — the things raw CloudWatch Logs batches
+                won&apos;t give you.
+              </p>
+              <div className="editorial-article__body">
+                <p>
+                  Application Signals lands as <code>aws/spans</code> log records, in batches
+                  CloudWatch decides for you. That&apos;s fine if you only need raw data in
+                  CloudWatch; it falls apart the moment you want trace-aware export. The relay
+                  reshapes that flow into trace-keyed lanes, then exports each lane on a predictable
+                  cadence.
+                </p>
+                <p>
+                  Managed-link decorators reconcile <em>inside</em> the active tumbling window
+                  before OTLP export. No cross-window state, no surprise reordering, no batch sizes
+                  that depend on whatever CloudWatch felt like sending.
+                </p>
+              </div>
+              <ol className="editorial-pipeline">
+                {pipelineSteps.map((step) => (
+                  <li key={step.num}>
+                    <span className="editorial-pipeline__num">{step.num}</span>
+                    <span className="editorial-pipeline__label">{step.label}</span>
+                    <span className="editorial-pipeline__tag">{step.tag}</span>
+                  </li>
+                ))}
+              </ol>
             </div>
-            <div className="grid gap-3 pt-2 sm:grid-cols-3">
-              {fit.map(({ title, body, href }) => (
+          </div>
+        </div>
+      </section>
+
+      <section className="editorial-imprint">
+        <div className="editorial-wrap">
+          <div className="editorial-imprint__row">
+            <span className="editorial-imprint__label">
+              <em>Ships</em> to
+            </span>
+            <div className="editorial-imprint__logos">
+              {imprintBackends.map((backend) => (
+                <div className="editorial-imprint__logo" key={backend.name}>
+                  {backend.icon}
+                  {backend.name}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer className="editorial-colophon">
+        <div className="editorial-wrap">
+          <div className="editorial-colophon__row">
+            <div>
+              <p className="editorial-colophon__brand">
+                <em>Signals</em> Relay
+              </p>
+              <p className="editorial-colophon__lede">
+                Beta — run in dev or staging today, then review the{" "}
                 <Link
-                  className="group rounded-xl border border-white/10 bg-black/[0.18] px-4 py-4 backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-white/25 hover:bg-black/[0.32]"
-                  href={href}
-                  key={title}
+                  className="editorial-colophon__inline"
+                  href={`${docsHref("install")}#production-hardening-checklist`}
                 >
-                  <h2 className="flex items-center gap-1.5 text-sm font-semibold text-white">
-                    {title}
-                    <ArrowRight
-                      aria-hidden="true"
-                      className="h-3.5 w-3.5 -translate-x-1 opacity-0 transition group-hover:translate-x-0 group-hover:opacity-80"
-                    />
-                  </h2>
-                  <p className="mt-1 text-sm leading-6 text-slate-200/75">{body}</p>
-                </Link>
-              ))}
+                  hardening checklist
+                </Link>{" "}
+                before production.
+              </p>
+              <p className="editorial-colophon__version">
+                v{signalsRelayVersion} · MIT licensed
+              </p>
             </div>
-            <p className="max-w-2xl pt-1 text-xs leading-6 text-neutral-400">
-              Beta — run it in dev or staging today, then review the{" "}
-              <Link
-                className="text-neutral-200 underline decoration-neutral-500 underline-offset-2 transition hover:text-white hover:decoration-neutral-300"
-                href={`${docsHref("install")}#production-hardening-checklist`}
-              >
-                hardening checklist
-              </Link>{" "}
-              before production.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-fd-border bg-fd-background">
-        <div className="mx-auto grid w-full max-w-7xl gap-10 px-6 py-16 md:px-10 md:py-20 lg:grid-cols-[0.86fr_1.14fr] lg:items-center lg:px-12">
-          <div>
-            <SectionKicker>Runtime shape</SectionKicker>
-            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-fd-foreground md:text-4xl">
-              Built around trace-aligned buffering.
-            </h2>
-            <p className="mt-4 text-lg leading-8 text-fd-muted-foreground">
-              Signals Relay trades a little latency for more control over grouping, batching, and
-              export behavior than raw CloudWatch Logs batches usually provide.
-            </p>
-            <ol className="mt-8 grid gap-3">
-              {pipeline.map((item, index) => (
-                <li
-                  className="grid grid-cols-[2.5rem_1fr] items-center gap-3 rounded-xl border border-fd-border bg-fd-card p-4"
-                  key={item}
-                >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-md border border-fd-border bg-fd-muted font-mono text-sm">
-                    {index + 1}
-                  </span>
-                  <span className="text-sm leading-6 text-fd-foreground">{item}</span>
+            <div>
+              <h4>Docs</h4>
+              <ul>
+                <li>
+                  <Link href={docsHref("concepts")}>Concepts</Link>
                 </li>
-              ))}
-            </ol>
-          </div>
-          <RelayFlowDiagram />
-        </div>
-      </section>
-
-      <section className="border-b border-fd-border bg-fd-muted/30">
-        <div className="mx-auto w-full max-w-7xl px-6 py-16 md:px-10 md:py-20 lg:px-12">
-          <div className="mb-8 max-w-2xl">
-            <SectionKicker>Where to next</SectionKicker>
-            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-fd-foreground md:text-4xl">
-              Move from evaluation to operation.
-            </h2>
-          </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          <Link
-            className="group rounded-2xl border border-fd-border bg-fd-card p-6 transition hover:-translate-y-0.5 hover:border-[color:var(--signals-cyan-soft)] hover:shadow-sm"
-            href={docsHref()}
-          >
-            <BookOpen aria-hidden="true" className="h-5 w-5 text-[color:var(--signals-blue)]" />
-            <h3 className="mt-3 font-semibold">Open the docs</h3>
-            <p className="mt-2 text-sm leading-6 text-fd-muted-foreground">
-              Choose the guide that matches your task.
-            </p>
-          </Link>
-          <Link
-            className="group rounded-2xl border border-fd-border bg-fd-card p-6 transition hover:-translate-y-0.5 hover:border-[color:var(--signals-cyan-soft)] hover:shadow-sm"
-            href={docsHref("troubleshooting")}
-          >
-            <Stethoscope aria-hidden="true" className="h-5 w-5 text-[color:var(--signals-green)]" />
-            <h3 className="mt-3 font-semibold">Troubleshoot an install</h3>
-            <p className="mt-2 text-sm leading-6 text-fd-muted-foreground">
-              Verify stack outputs, span flow, export behavior, and failure queues.
-            </p>
-          </Link>
-          <Link
-            className="group rounded-2xl border border-fd-border bg-fd-card p-6 transition hover:-translate-y-0.5 hover:border-[color:var(--signals-cyan-soft)] hover:shadow-sm"
-            href={docsHref("current-architecture")}
-          >
-            <Workflow aria-hidden="true" className="h-5 w-5 text-[color:var(--signals-amber)]" />
-            <h3 className="mt-3 font-semibold">Review architecture</h3>
-            <p className="mt-2 text-sm leading-6 text-fd-muted-foreground">
-              Understand the partitioner, stream, relay window, and export modes.
-            </p>
-          </Link>
-        </div>
-        </div>
-      </section>
-
-      <section className="border-t border-fd-border bg-fd-muted/30">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-6 py-10 md:flex-row md:items-center md:justify-between md:px-10 lg:px-12">
-          <div>
-            <h2 className="text-xl font-semibold tracking-normal">Ready to evaluate the relay?</h2>
-            <p className="mt-2 text-sm text-fd-muted-foreground">
-              Deploy a versioned release in CloudFormation, or read the architecture guide first.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-fd-foreground px-4 py-2.5 text-sm font-semibold text-fd-background shadow-sm transition hover:bg-fd-foreground/90"
-              href={docsHref("install")}
-            >
-              <RadioTower aria-hidden="true" className="h-4 w-4" />
-              Deploy from a release
-            </Link>
-            <Link
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-fd-border bg-fd-background px-4 py-2.5 text-sm font-medium transition hover:bg-fd-muted"
-              href={docsHref("current-architecture")}
-            >
-              Read the architecture guide
-            </Link>
+                <li>
+                  <Link href={docsHref("install")}>Install</Link>
+                </li>
+                <li>
+                  <Link href={docsHref("current-architecture")}>Architecture</Link>
+                </li>
+                <li>
+                  <Link href={docsHref("troubleshooting")}>Troubleshooting</Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4>Project</h4>
+              <ul>
+                {colophonProject.map((entry) => (
+                  <li key={entry.label}>
+                    <a
+                      href={entry.href}
+                      rel={entry.external ? "noopener noreferrer" : undefined}
+                      target={entry.external ? "_blank" : undefined}
+                    >
+                      {entry.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h4>Set in</h4>
+              <ul>
+                <li>Instrument Serif</li>
+                <li>Inter</li>
+                <li>JetBrains Mono</li>
+              </ul>
+            </div>
           </div>
         </div>
-      </section>
-    </main>
+      </footer>
+    </div>
   );
 }
