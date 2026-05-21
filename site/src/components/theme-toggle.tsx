@@ -12,14 +12,16 @@ export function ThemeToggle() {
     setMounted(true);
   }, []);
 
-  const next = resolvedTheme === "dark" ? "light" : "dark";
-  const Icon = mounted && resolvedTheme === "dark" ? Sun : Moon;
-  const label = mounted ? `Switch to ${next} theme` : "Toggle theme";
+  const currentTheme = mounted ? resolvedTheme : undefined;
+  const next = currentTheme === "dark" ? "light" : "dark";
+  const Icon = currentTheme === "dark" ? Sun : Moon;
+  const label = currentTheme ? `Switch to ${next} theme` : "Toggle theme";
 
   return (
     <button
       aria-label={label}
       className="masthead__theme"
+      disabled={!currentTheme}
       onClick={() => setTheme(next)}
       title={label}
       type="button"

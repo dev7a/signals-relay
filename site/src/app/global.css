@@ -269,6 +269,17 @@ html > body[data-scroll-locked] {
   background: var(--signals-glass-bg);
 }
 
+.masthead__theme:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.masthead__theme:disabled:hover {
+  color: var(--signals-text-2);
+  border-color: var(--signals-line);
+  background: transparent;
+}
+
 .masthead__theme svg {
   width: 14px;
   height: 14px;
@@ -954,7 +965,7 @@ html > body[data-scroll-locked] {
   color: var(--signals-text-2);
   text-decoration: underline;
   text-underline-offset: 3px;
-  text-decoration-color: rgb(243 236 224 / 0.35);
+  text-decoration-color: var(--signals-line-strong);
 }
 
 .editorial-colophon__inline:hover {
