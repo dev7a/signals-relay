@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Signals Relay — social preview 1280×640</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;padding:0;background:#222;font-family:'Inter',sans-serif}
+  body[data-capture]{background:#0e0d0a}
+  body[data-capture] .stage{display:block;padding:0;min-height:0;gap:0}
+  body[data-capture] .tools{display:none}
+  body[data-capture] .card{box-shadow:none}
+  .stage{display:grid;place-items:center;min-height:100vh;padding:24px;gap:20px}
+  .card{position:relative;width:1280px;height:640px;background:#0e0d0a;color:#f3ece0;
+    overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+
+  .grid{position:absolute;inset:0;pointer-events:none;opacity:.32;
+    background-image:
+      linear-gradient(rgba(243,236,224,.06) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(243,236,224,.06) 1px,transparent 1px);
+    background-size:48px 48px;
+    mask-image:radial-gradient(ellipse 70% 60% at 90% 50%,black,transparent 90%)}
+  .glow{position:absolute;inset:0;pointer-events:none;
+    background:
+      radial-gradient(900px 460px at 8% 12%, rgba(200,164,74,.10), transparent 60%),
+      radial-gradient(700px 400px at 95% 90%, rgba(217,122,58,.06), transparent 60%)}
+
+  .ch{position:absolute;width:18px;height:18px;border:1px solid rgba(243,236,224,.16)}
+  .ch.tl{top:48px;left:48px;border-right:none;border-bottom:none}
+  .ch.tr{top:48px;right:48px;border-left:none;border-bottom:none}
+  .ch.bl{bottom:48px;left:48px;border-right:none;border-top:none}
+  .ch.br{bottom:48px;right:48px;border-left:none;border-top:none}
+
+  .head{position:absolute;top:64px;left:96px;right:96px;display:flex;justify-content:space-between;align-items:center;
+    font-family:'JetBrains Mono',monospace;font-size:14px;color:rgba(243,236,224,.5);letter-spacing:.1em;text-transform:uppercase}
+  .head b{color:rgba(243,236,224,.78);font-weight:500}
+  .pill{display:inline-flex;align-items:center;gap:8px;color:#c8a44a}
+  .pill::before{content:"";width:8px;height:8px;border-radius:50%;background:#c8a44a;box-shadow:0 0 12px #c8a44a}
+
+  /* Anchor body to top with a fixed offset so the stack never grows down into the foot.
+     Original design used vertical-centering, which collided with the foot once the title
+     wrapped to 3 lines. */
+  .body{position:absolute;top:120px;left:96px;right:96px;
+    display:flex;flex-direction:column;gap:24px}
+
+  .mark-row{display:flex;align-items:center;gap:20px}
+  .mark{width:76px;height:76px;flex-shrink:0;display:block}
+  .wordmark{font-family:'Instrument Serif',serif;font-size:34px;letter-spacing:-.01em;color:#f3ece0;line-height:1}
+  .wordmark em{font-style:italic;color:#c8a44a}
+
+  h1.title{font-family:'Instrument Serif',serif;font-weight:400;font-size:78px;line-height:1.02;letter-spacing:-.035em;
+    color:#f3ece0;margin:0;max-width:18ch}
+  h1.title em{font-style:italic;color:#c8a44a}
+
+  .sub{font-family:'Inter',sans-serif;font-size:19px;line-height:1.5;color:rgba(243,236,224,.62);margin:0;max-width:54ch;font-weight:400}
+  .sub code{font-family:'JetBrains Mono',monospace;font-size:.85em;color:#f3ece0;padding:2px 9px;border:1px solid rgba(243,236,224,.14);border-radius:5px;background:rgba(243,236,224,.04);vertical-align:1px}
+
+  .foot{position:absolute;bottom:64px;left:96px;right:96px;display:flex;justify-content:space-between;align-items:baseline;
+    font-family:'JetBrains Mono',monospace;font-size:14px;color:rgba(243,236,224,.5);letter-spacing:.06em}
+  .foot .repo{color:rgba(243,236,224,.78)}
+
+  .tools{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center;color:#a4a098;font-size:13px;font-family:'JetBrains Mono',monospace}
+  .tools button{font-family:inherit;font-size:13px;padding:8px 14px;background:#1a1812;color:#f3ece0;border:1px solid rgba(243,236,224,.14);border-radius:6px;cursor:pointer}
+  .tools button:hover{border-color:rgba(200,164,74,.4);color:#c8a44a}
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="og-card">
+      <div class="grid"></div>
+      <div class="glow"></div>
+      <span class="ch tl"></span><span class="ch tr"></span><span class="ch bl"></span><span class="ch br"></span>
+
+      <div class="head">
+        <span><b>dev7a</b>/signals-relay</span>
+        <span class="pill">in beta · v0.1.0</span>
+      </div>
+
+      <div class="body">
+        <div class="mark-row">
+          <svg class="mark" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Signals Relay">
+            <defs>
+              <linearGradient id="og-mark" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#dcb960"/>
+                <stop offset="100%" stop-color="#b88a35"/>
+              </linearGradient>
+            </defs>
+            <rect x="0" y="0" width="64" height="64" rx="11" fill="#0e0d0a"/>
+            <rect x="0.5" y="0.5" width="63" height="63" rx="10.5" fill="none" stroke="rgba(200,164,74,0.28)"/>
+            <path d="M 20.78 20.84 A 11.52 11.52 0 0 1 20.78 43.16" fill="none" stroke="url(#og-mark)" stroke-width="4.48" stroke-linecap="round" opacity="0.40"/>
+            <path d="M 22.85 12.78 A 19.84 19.84 0 0 1 22.85 51.22" fill="none" stroke="url(#og-mark)" stroke-width="4.48" stroke-linecap="round" opacity="0.62"/>
+            <path d="M 24.92 4.72 A 28.16 28.16 0 0 1 24.92 59.28" fill="none" stroke="url(#og-mark)" stroke-width="4.48" stroke-linecap="round" opacity="0.84"/>
+            <path d="M 48.32 32 L 55.04 32" fill="none" stroke="url(#og-mark)" stroke-width="4.48" stroke-linecap="round"/>
+            <path d="M 44.80 24.83 L 55.04 32 L 44.80 39.17" fill="none" stroke="url(#og-mark)" stroke-width="4.48" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="wordmark"><em>Signals</em> Relay</span>
+        </div>
+
+        <h1 class="title">Application Signals, <em>relayed</em> to any OTLP backend.</h1>
+
+        <p class="sub">A serverless AWS pipeline — <code>aws/spans</code> log records, exported as OTLP traces to any observability backend.</p>
+      </div>
+
+      <div class="foot">
+        <span>signalsrelay.dev</span>
+        <span class="repo">github.com/dev7a/signals-relay</span>
+      </div>
+    </div>
+
+    <div class="tools">
+      <span style="opacity:.7">1280×640 · GitHub repo "Social preview"</span>
+      <button id="dl">Download PNG</button>
+    </div>
+  </div>
+
+<script src="html-to-image.js"></script>
+<script>
+  document.getElementById('dl').addEventListener('click', async () => {
+    const card = document.getElementById('og-card');
+    try {
+      const dataUrl = await htmlToImage.toPng(card, { pixelRatio: 2, width: 1280, height: 640 });
+      const a = document.createElement('a');
+      a.download = 'signals-relay-social-preview.png';
+      a.href = dataUrl;
+      a.click();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      alert('Export failed: ' + message);
+    }
+  });
+</script>
+</body>
+</html>

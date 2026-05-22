@@ -1,5 +1,6 @@
 /.aws-sam/
 /.codex/
+/.playwright-mcp/
 /target/
 **/target/
 .DS_Store

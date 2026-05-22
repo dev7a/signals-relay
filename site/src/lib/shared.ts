@@ -20,6 +20,16 @@ export const basePath = resolveBasePath({
 
 export const signalsRelayVersion = process.env.NEXT_PUBLIC_SIGNALS_RELAY_VERSION ?? "0.0.0";
 
+function formatEditionDate(date: Date) {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${y}.${m}.${day}`;
+}
+
+// Static export labels the site edition by build date.
+export const siteEditionLabel = formatEditionDate(new Date());
+
 export function withBasePath(path: string) {
   if (!path.startsWith("/") || !basePath || path.startsWith(`${basePath}/`) || path === basePath) {
     return path;
