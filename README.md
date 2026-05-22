@@ -10,8 +10,8 @@ Grafana Tempo, New Relic, or any OTLP/HTTP endpoint.
 
 <div align="center">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./svgs/architecture-flow-dark.svg">
-  <img src="./svgs/architecture-flow-light.svg" alt="Animated Signals Relay trace pipeline">
+  <source media="(prefers-color-scheme: dark)" srcset="./svgs/readme-hero-schematic-dark.svg">
+  <img src="./svgs/readme-hero-schematic-light.svg" alt="Animated Signals Relay trace pipeline schematic">
 </picture>
 </div>
 
