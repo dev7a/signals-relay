@@ -3,10 +3,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](./LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/dev7a/signals-relay?include_prereleases&label=release&style=flat)](https://github.com/dev7a/signals-relay/releases)
 
-Send AWS Application Signals to any OTLP backend. Signals Relay is a
+Send AWS Application Signals traces where you need them. Signals Relay is a
 serverless AWS pipeline that converts CloudWatch Application Signals
-`aws/spans` log records into OTLP traces and ships them to Honeycomb, Datadog,
-Grafana Tempo, New Relic, or any OTLP/HTTP endpoint.
+`aws/spans` log records into OTLP traces and ships them to your observability
+backend, or your own OTel collector.
 
 <div align="center">
 <picture>
