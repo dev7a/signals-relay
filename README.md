@@ -27,12 +27,13 @@ Signals spans into an OpenTelemetry backend, and you are comfortable operating
 an event-driven pipeline built from CloudWatch Logs, Lambda, Kinesis, SQS, and
 Secrets Manager.
 
-The fastest evaluation path is the AWS Serverless Application Repository (SAR)
-application or the versioned CloudFormation quick-launch links published with
-each [GitHub Release](https://github.com/dev7a/signals-relay/releases). The
-target account must be allowed to deploy the selected SAR version through
-account, organization, or public sharing. You only need a source checkout when
-you want to inspect, modify, or publish the application yourself.
+The fastest way to evaluate Signals Relay is with the AWS Serverless
+Application Repository (SAR) application or the versioned CloudFormation
+quick-launch links in each
+[GitHub Release](https://github.com/dev7a/signals-relay/releases). Your target
+account must be authorized to deploy that SAR version through account,
+organization, or public sharing. You only need a source checkout to inspect,
+modify, or publish the application yourself.
 
 ### When Signals Relay Is Not a Fit
 
@@ -75,10 +76,10 @@ full set of tradeoffs.
    }
    ```
 
-5. In the CloudFormation console, acknowledge the prompts for IAM resources,
-   IAM resources with custom names, and `CAPABILITY_AUTO_EXPAND`.
+5. In the CloudFormation console, acknowledge prompts for IAM resource creation,
+   custom IAM resource names, and `CAPABILITY_AUTO_EXPAND`.
 
-The current SAR publication path is pinned to `us-east-1`. Full install
+The current SAR application is published in `us-east-1`. Full install
 instructions, IaC examples, source deployment, and upgrade guidance live in
 [docs/install.md](./docs/install.md).
 
@@ -101,7 +102,7 @@ The application deploys:
 </picture>
 </div>
 
-This shape gives the relay control over trace-based grouping and batching
+This design gives the relay control over trace-based grouping and batching
 instead of depending on the small batches CloudWatch Logs often delivers for
 `aws/spans`. Managed-link decorators are reconciled inside the active tumbling
 window before OTLP export.
@@ -111,7 +112,7 @@ implemented architecture, export modes, failure handling, and tradeoffs.
 
 ## Documentation Map
 
-- [Install and deployment](./docs/install.md): deploy from GitHub Release
+- [Installation and deployment](./docs/install.md): deploy from GitHub Release
   quick launch, SAR, IaC, or source
 - [Concepts](./docs/concepts.md): glossary, export modes, secret contract, and
   deployment inputs
@@ -137,7 +138,7 @@ replace SAR and do not use a mutable `latest` URL. Maintainer artifacts such as
 the reusable crate package and CloudFormation manifest are covered in
 [docs/release.md](./docs/release.md).
 
-## Build And Validate From Source
+## Build and validate from source
 
 Use these commands after cloning the repository:
 

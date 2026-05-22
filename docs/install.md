@@ -1,14 +1,14 @@
-# Install And Deployment
+# Installation and deployment
 
-Use this guide when you want to deploy, evaluate, or upgrade Signals Relay.
+Use this guide to deploy, evaluate, or upgrade Signals Relay.
 
 For repository publication and release maintenance, see
 [release.md](./release.md).
 
-If the terms are new, read [concepts.md](./concepts.md) first. After deploying,
-use [troubleshooting.md](./troubleshooting.md) to verify the install.
+If any terms are unfamiliar, read [concepts.md](./concepts.md) first. After
+deploying, use [troubleshooting.md](./troubleshooting.md) to verify the install.
 
-## Choose An Install Path
+## Choose an install path
 
 | Install path | Use when | Needs source checkout? | Primary audience |
 | --- | --- | --- | --- |
@@ -19,7 +19,7 @@ use [troubleshooting.md](./troubleshooting.md) to verify the install.
 | Terraform | You manage the SAR app with Terraform. | No | Platform and IaC teams |
 | Source deployment | You need to inspect, modify, test, or publish the app yourself. | Yes | Maintainers and contributors |
 
-For the fastest evaluation, start with the GitHub Release quick-launch path.
+For the quickest evaluation, start with the GitHub Release quick-launch path.
 
 ## Preflight Checklist
 
@@ -132,7 +132,8 @@ For VPC deployments, the launch template only passes the selected VPC and
 subnets to the SAR application. The child application creates a security group
 for the relay Lambda with outbound egress, but it does not create NAT gateways,
 route-table entries, or VPC endpoints. Choose subnets that can reach Secrets
-Manager and the OTLP destination over HTTPS, or provide that egress separately.
+Manager and the OTLP destination over HTTPS, or provide that egress path
+separately.
 
 ## Install From SAR
 
@@ -338,19 +339,19 @@ when set. If that variable is omitted, the generator falls back to the checked-i
 `us-east-1` arm64 OpenTelemetry collector layer ARN. Verify the layer ARN for
 your target Region and collector version before using collector mode.
 
-The helper renders the ignored local `samconfig.toml` from
+The helper renders the generated local `samconfig.toml` from
 `samconfig.example.toml`. It renders all local SAM environments at once, so it
 also asks for the publish-profile placeholders. For source-only deploys,
 `SIGNALS_RELAY_PUBLIC_PROFILE` may reuse your deployment profile and
 `SIGNALS_RELAY_PUBLIC_SAR_BUCKET` is only used if you later run the
-`public_publish` package/publish profile.
+`public_publish` package or publish profile.
 
 Set `SIGNALS_RELAY_REGION` when local deployment should target a Region other
 than `us-east-1`. The generated `default` and `collector` profiles inherit that
 Region, while `public_publish` remains pinned to `us-east-1` for the current
 SAR publication path.
 
-## Verify The Install
+## Verify the install
 
 After deployment:
 
@@ -371,7 +372,7 @@ Signals Relay is experimental. Before production use, review:
 
 - Kinesis shard count, throughput, retention, and cost
 - CloudWatch alarms for Lambda errors, throttles, duration, and iterator age
-- failure queue alerting, inspection, and replay procedures
+- failure-queue alerting, inspection, and replay procedures
 - VPC egress to Secrets Manager and the OTLP backend
 - secret rotation and `DeploymentId` refresh behavior
 - OTLP backend authentication, rate limits, and rejected-payload behavior

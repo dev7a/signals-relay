@@ -1,7 +1,7 @@
 # Concepts
 
-Use this guide when you want the vocabulary and mental model before deploying
-or reading the architecture details.
+Start here to learn the vocabulary and mental model before deploying or reading
+the architecture guide.
 
 Signals Relay sits between CloudWatch Application Signals and an OTLP/HTTP
 trace backend. It is intentionally small: it subscribes to span records,
@@ -15,7 +15,7 @@ If you are new to this project, read in this order:
 | Step | Page | Why it matters |
 | --- | --- | --- |
 | 1 | Concepts | Learn the terms used by the deploy and architecture guides. |
-| 2 | [Install and deployment](./install.md) | Choose an install path and deploy the stack. |
+| 2 | [Installation and deployment](./install.md) | Choose an install path and deploy the stack. |
 | 3 | [Troubleshooting](./troubleshooting.md) | Verify the install and debug export failures. |
 | 4 | [Current architecture](./current-architecture.md) | Understand the runtime design and tradeoffs. |
 
@@ -38,15 +38,15 @@ subscription filter.
 
 ### Span Record
 
-Each source log record represents one span or one related decorator record. A
-single trace can therefore arrive as many small records and many small
-CloudWatch Logs delivery batches.
+Each source log record is one span or one related decorator record. A single
+trace can arrive as many small records spread across multiple CloudWatch Logs
+delivery batches.
 
 ### Managed-Link Decorator
 
 A managed-link decorator is an Application Signals record that describes a
-relationship to attach to another span. Signals Relay reconciles decorators with
-target spans only while both are present in the active relay window.
+relationship to another span. Signals Relay reconciles decorators with target
+spans only while both are present in the active relay window.
 
 ### OTLP/HTTP Backend
 
@@ -71,7 +71,7 @@ you already standardize export behavior through the collector extension.
 
 The partitioner Lambda republishes source records to Kinesis with
 `partitionKey = traceId`. That moves batching from CloudWatch Logs delivery
-shape to trace identity.
+batches to trace-based batching.
 
 ### Tumbling Window
 
@@ -88,8 +88,8 @@ The stack creates two SQS queues:
 - an invocation-failure queue for unexpected asynchronous partitioner invocation
   failures
 
-These queues are recovery and diagnosis surfaces. They are not a complete
-long-term replay control plane.
+These queues support recovery and diagnosis. They are not a complete long-term
+replay control plane.
 
 ## Deployment Inputs
 
