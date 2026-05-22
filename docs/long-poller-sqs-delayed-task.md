@@ -1,15 +1,15 @@
-# Long Poller With SQS For Delayed Work
+# Long poller with SQS for delayed work
 
 > [!NOTE]
 > This is an alternative design note. It is retained for tradeoff history and
 > comparison, not as the recommended deployment path.
 
-## What It Is
+## What it is
 
 This alternative replaces the push subscription path with a pull loop managed
 by Lambda and SQS.
 
-Flow:
+How it works:
 
 1. A scheduled heartbeat Lambda starts or resumes the poller chain.
 2. A poller Lambda reads pages from CloudWatch Logs APIs.
@@ -18,11 +18,12 @@ Flow:
    cursor and a delay.
 5. If no work is available, it schedules a quiet-period wake-up.
 
-## Why It Was Considered
+## Why it was considered
 
 The long-poller model gives the application explicit control over CloudWatch
 Logs page size, polling cadence, and delayed follow-up work. It can smooth out
-small push batches by choosing when and how much to poll.
+small push batches by letting the application choose when to poll and how much
+to pull.
 
 ## Strengths
 
@@ -39,18 +40,18 @@ small push batches by choosing when and how much to poll.
 - SQS at-least-once delivery and visibility timeouts can create overlapping
   poller work.
 - Lambda recursion safeguards and SQS delay limits shape the design.
-- It is less event-native than the subscription and Kinesis paths.
+- It is less event-driven than the subscription and Kinesis paths.
 
 ## Historical Fit
 
 This approach fit the case where explicit control over polling cadence mattered
 more than keeping the pipeline event-driven.
 
-## Questions That Drove The Decision
+## Questions that drove the decision
 
-- Which CloudWatch Logs API limits dominate page size, rate limits, and token
+- How do CloudWatch Logs API limits affect page size, request rate, and token
   lifetime?
-- Is SQS payload state enough for recovery, or is a durable checkpoint store
+- Is SQS payload state sufficient for recovery, or is a durable checkpoint store
   required?
 - Can a single active poller keep up with expected `aws/spans` volume?
 - Is the control-plane complexity worth it compared with the current

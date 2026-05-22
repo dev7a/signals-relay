@@ -1,7 +1,6 @@
 # Release Guide
 
-Use this guide when you maintain this repository and need to publish a
-coordinated release.
+Use this guide to publish a coordinated release from this repository.
 
 For operator install paths, quick-launch deployment, IaC examples, and upgrade
 guidance, see [install.md](./install.md).
@@ -24,7 +23,7 @@ starting a release, make sure:
 - `CFN_ARTIFACT_BUCKET` is configured as a GitHub Actions repository variable
   for CloudFormation launch artifacts.
 
-The current release path is single-Region and pinned to `us-east-1`.
+The current release path is pinned to a single Region, `us-east-1`.
 
 The assumed release role must be able to build, package, publish, share, and
 verify one release in that Region. At minimum, the workflow exercises:
@@ -34,8 +33,8 @@ verify one release in that Region. At minimum, the workflow exercises:
 - `s3:GetBucketLocation` and S3 write access for `CFN_ARTIFACT_BUCKET`
 - Serverless Application Repository publish and readback access, including
   `serverlessrepo:GetApplication`
-- for `share_scope=organization`, `serverlessrepo:GetApplicationPolicy`,
-  `serverlessrepo:PutApplicationPolicy`, and
+- For `share_scope=organization`, include
+  `serverlessrepo:GetApplicationPolicy`, `serverlessrepo:PutApplicationPolicy`, and
   `organizations:DescribeOrganization`
 
 ## Manual Workflow Dispatch
@@ -71,8 +70,8 @@ release tag for a version that did not publish.
 
 Each release produces these outputs from the same repository state:
 
-- `signals-relay-core` crate artifact attached to the GitHub Release
-- SAM application published through SAR
+- The `signals-relay-core` crate artifact attached to the GitHub Release
+- The SAM application published through SAR
 - SAR package artifacts uploaded through `SAR_ARTIFACT_BUCKET`
 - CloudFormation launch wrappers uploaded through `CFN_ARTIFACT_BUCKET`
 - CloudFormation manifest attached to the GitHub Release
@@ -108,9 +107,9 @@ The generated notes include:
 - versioned template URLs
 - release artifact references
 
-The badge image is a checked-in SVG referenced through the release tag with a
-GitHub `blob/<tag>/...svg?raw=1` URL. The launch targets themselves point to
-the versioned CloudFormation quick-create URLs in the manifest.
+The badge image is a checked-in SVG referenced from the release tag through a
+GitHub `blob/<tag>/...svg?raw=1` URL. The launch targets point to the versioned
+CloudFormation quick-create URLs in the manifest.
 
 ## SAR Sharing Behavior
 
@@ -129,9 +128,9 @@ sharing.
 
 ## Required Capabilities
 
-CloudFormation launch installs create a parent stack that creates the published
+CloudFormation launch installs create a parent stack that deploys the published
 SAR app as a nested application. Operators should expect prompts for IAM
-resources, IAM resources with custom names, and `CAPABILITY_AUTO_EXPAND`.
+resources, including resources with custom names, and `CAPABILITY_AUTO_EXPAND`.
 
 Tooling that names capabilities explicitly should include:
 
@@ -139,7 +138,7 @@ Tooling that names capabilities explicitly should include:
 CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_RESOURCE_POLICY CAPABILITY_AUTO_EXPAND
 ```
 
-## Failure And Rerun Notes
+## Failure and rerun notes
 
 The workflow fails fast when:
 
@@ -186,5 +185,5 @@ local `public_publish` SAM environment.
    ```
 
 The automated GitHub Actions release remains the preferred path because it also
-validates version parity, creates the tag after successful publish, uploads the
-CloudFormation launch artifacts, and creates the GitHub Release.
+validates version parity, creates the tag only after successful publish, uploads
+the CloudFormation launch artifacts, and creates the GitHub Release.

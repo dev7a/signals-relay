@@ -3,7 +3,7 @@
 Use this guide after deployment when you need to verify the stack, diagnose
 missing spans, or understand failure queues.
 
-Start with the smallest path that proves data is moving:
+Start with the shortest path that proves data is moving:
 
 1. CloudWatch Logs writes source records to the span log group.
 2. The subscription filter invokes the partitioner Lambda.
@@ -43,7 +43,7 @@ Default:
 aws/spans
 ```
 
-### Subscription Filter Quota Or Conflict
+### Subscription filter quota or conflict
 
 CloudWatch Logs limits the number of subscription filters on a log group. If
 another relay or processor already subscribes to the same log group, remove the
@@ -51,7 +51,8 @@ conflicting subscription or choose a different source log group.
 
 ### Missing CloudFormation Capabilities
 
-Deployments need these capabilities when tooling asks for them explicitly:
+Deployments need these capabilities when the deployment tool requests them
+explicitly:
 
 ```text
 CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_RESOURCE_POLICY CAPABILITY_AUTO_EXPAND
@@ -63,15 +64,15 @@ transform and nested SAR application flow.
 ### SAR Application Is Not Deployable By This Account
 
 Quick-launch templates deploy the published SAR application as a nested
-application. They do not bypass SAR sharing. Make sure the target account can
-deploy the selected application version through account, organization, or public
+application. They do not bypass SAR sharing. Ensure the target account can deploy
+the selected application version through account, organization, or public
 sharing.
 
-### Collector Mode Has No Collector Layer ARN
+### Collector mode is missing the collector layer ARN
 
 `ExportMode=collector` requires `CollectorExtensionArn`. Use `direct` mode for
-the simplest evaluation path, or provide an OpenTelemetry Lambda collector
-extension layer ARN that matches the target Region and architecture.
+the simplest test path, or provide an OpenTelemetry Lambda collector extension
+layer ARN that matches the target Region and architecture.
 
 ## No Spans Arrive
 
@@ -136,7 +137,7 @@ Examples:
 | `https://example.com/base` | `https://example.com/base/v1/traces` |
 | `https://example.com/v1/traces` | `https://example.com/v1/traces` |
 
-### Backend Rejects The Request
+### Backend rejects the request
 
 Check relay logs for HTTP status and export errors. Common causes are missing
 authorization headers, expired tokens, unsupported OTLP/HTTP paths, backend rate
@@ -149,7 +150,7 @@ The VPC launch path passes existing VPC and subnet selections to the application
 It does not create NAT gateways, route-table entries, or VPC endpoints. Selected
 subnets must reach Secrets Manager and the OTLP destination over HTTPS.
 
-### Collector Mode Cannot Start The Collector
+### Collector mode cannot start the collector
 
 Confirm `CollectorExtensionArn` points to a valid collector extension layer for
 the target Region and architecture. Then inspect the relay Lambda logs for
@@ -163,8 +164,8 @@ The publish-failure queue receives source records that could not be written to
 Kinesis after retry handling. Inspect this queue when partitioner logs mention
 non-retryable records, retry exhaustion, or Kinesis write failures.
 
-Replaying old publish-failure messages can be useful for recovery, but managed
-link reconciliation is bounded by the original relay window. A replay after that
+Replaying old publish-failure messages can help with recovery, but managed-link
+reconciliation is limited to the original relay window. A replay after that
 window closes may export spans without same-window decorator matches.
 
 ### Invocation-Failure Queue
@@ -174,7 +175,7 @@ invocation failures. Inspect this queue when Lambda reports async delivery
 failures or when the partitioner does not run consistently despite a valid
 subscription filter.
 
-## Operational Signals To Watch
+## Operational signals to watch
 
 Before production use, add alarms or dashboards for:
 
@@ -195,7 +196,7 @@ The relay reads the shared secret during startup in direct mode. After rotating
 credentials, update the stack with a new `DeploymentId` value when you need
 CloudFormation to force fresh Lambda execution environments.
 
-## When To Escalate To Architecture Review
+## When to escalate to architecture review
 
 If the deployment works but the shape does not fit your reliability model, read
 [Current architecture](./current-architecture.md). Pay special attention to
