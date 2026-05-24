@@ -4,7 +4,8 @@ This directory contains the static Fumadocs site for Signals Relay.
 
 The authored documentation stays in the repository root under `docs/`. The
 `site/content/docs` and `site/public/docs-assets` directories are generated and
-should not be edited by hand.
+should not be edited by hand. The public docs order and labels come from
+`docs/nav.json`.
 
 ## Local Development
 

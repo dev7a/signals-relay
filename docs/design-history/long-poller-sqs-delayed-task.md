@@ -9,6 +9,8 @@
 This alternative replaces the push subscription path with a pull loop managed
 by Lambda and SQS.
 
+For the implemented pipeline, see [Architecture](../architecture.md).
+
 How it works:
 
 1. A scheduled heartbeat Lambda starts or resumes the poller chain.

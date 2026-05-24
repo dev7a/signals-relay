@@ -4,42 +4,39 @@ import type { ReactNode } from "react";
 import { EditorialMasthead } from "@/components/editorial-masthead";
 import { SchematicDiagram } from "@/components/schematic-diagram";
 import { docsHref, githubUrl, signalsRelayVersion, siteEditionLabel } from "@/lib/shared";
+import docsNav from "../../content/docs/nav.json";
+
+type DocsNavItem = {
+  label: string;
+  title: string;
+  description: string;
+  href: string;
+};
+
+type DocsNavSection = {
+  id: string;
+  title: string;
+  items: DocsNavItem[];
+};
+
+const primaryDocs = docsNav.primary as DocsNavItem[];
+const indexDocs = docsNav.index as DocsNavItem[];
+const secondaryDocs = docsNav.secondary as DocsNavSection[];
+const deployDoc = primaryDocs.find((entry) => entry.label === "Deploy");
+const architectureDoc = primaryDocs.find((entry) => entry.label === "Architecture");
 
 const navLinks: Array<{ href: string; label: string }> = [
   { href: "/", label: "Overview" },
-  { href: docsHref("concepts"), label: "Concepts" },
-  { href: docsHref("install"), label: "Install" },
-  { href: docsHref("current-architecture"), label: "Architecture" },
-  { href: docsHref("troubleshooting"), label: "Troubleshooting" },
-  { href: docsHref(), label: "Docs" },
+  ...primaryDocs.map((entry) => ({ href: entry.href, label: entry.label })),
 ];
 
-const indexEntries: Array<{ num: string; title: string; description: string; href: string }> = [
-  {
-    num: "¶ 01",
-    title: "Concepts",
-    description: "Glossary, export modes, secret contract, and inputs.",
-    href: docsHref("concepts"),
-  },
-  {
-    num: "¶ 02",
-    title: "Install",
-    description: "From a Release, via SAR, IaC, or built from source.",
-    href: docsHref("install"),
-  },
-  {
-    num: "¶ 03",
-    title: "Architecture",
-    description: "Partitioner, Kinesis, tumbling window, export modes.",
-    href: docsHref("current-architecture"),
-  },
-  {
-    num: "¶ 04",
-    title: "Troubleshooting",
-    description: "Verify deploys, diagnose missing spans, failure queues.",
-    href: docsHref("troubleshooting"),
-  },
-];
+const indexEntries: Array<{ num: string; title: string; description: string; href: string }> =
+  indexDocs.map((entry, index) => ({
+    num: `¶ ${String(index + 1).padStart(2, "0")}`,
+    title: entry.title,
+    description: entry.description,
+    href: entry.href,
+  }));
 
 const pipelineSteps: Array<{ num: string; label: ReactNode; tag: string }> = [
   {
@@ -157,11 +154,11 @@ export default function HomePage() {
                 OTLP/HTTP endpoint of your choosing.
               </p>
               <div className="editorial-hero__cta">
-                <Link className="editorial-btn-paper" href={docsHref("install")}>
-                  Install guide
+                <Link className="editorial-btn-paper" href={deployDoc?.href ?? docsHref("deploy")}>
+                  Deploy
                   <ArrowRight aria-hidden="true" />
                 </Link>
-                <Link className="editorial-btn-link" href={docsHref("current-architecture")}>
+                <Link className="editorial-btn-link" href={architectureDoc?.href ?? docsHref("architecture")}>
                   Read the architecture
                   <ArrowRight aria-hidden="true" />
                 </Link>
@@ -257,7 +254,7 @@ export default function HomePage() {
                 Beta — run in dev or staging today, then review the{" "}
                 <Link
                   className="editorial-colophon__inline"
-                  href={`${docsHref("install")}#production-hardening-checklist`}
+                  href={`${docsHref("operate")}#production-hardening-checklist`}
                 >
                   hardening checklist
                 </Link>{" "}
@@ -270,20 +267,25 @@ export default function HomePage() {
             <div>
               <h4>Docs</h4>
               <ul>
-                <li>
-                  <Link href={docsHref("concepts")}>Concepts</Link>
-                </li>
-                <li>
-                  <Link href={docsHref("install")}>Install</Link>
-                </li>
-                <li>
-                  <Link href={docsHref("current-architecture")}>Architecture</Link>
-                </li>
-                <li>
-                  <Link href={docsHref("troubleshooting")}>Troubleshooting</Link>
-                </li>
+                {primaryDocs.map((entry) => (
+                  <li key={entry.href}>
+                    <Link href={entry.href}>{entry.label}</Link>
+                  </li>
+                ))}
               </ul>
             </div>
+            {secondaryDocs.map((section) => (
+              <div key={section.id}>
+                <h4>{section.title}</h4>
+                <ul>
+                  {section.items.map((entry) => (
+                    <li key={entry.href}>
+                      <Link href={entry.href}>{entry.label}</Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
             <div>
               <h4>Project</h4>
               <ul>

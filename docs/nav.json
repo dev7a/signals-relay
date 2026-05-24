@@ -1,0 +1,83 @@
+{
+  "title": "Signals Relay docs",
+  "sections": [
+    {
+      "id": "primary",
+      "title": "Docs"
+    },
+    {
+      "id": "maintainers",
+      "title": "Maintainers"
+    },
+    {
+      "id": "design-history",
+      "title": "Design history"
+    }
+  ],
+  "pages": [
+    {
+      "source": "docs/README.md",
+      "target": "index.mdx",
+      "navLabel": "Docs",
+      "title": "Signals Relay docs",
+      "description": "Get Signals Relay running, confirm trace export, and look up the contracts behind the pipeline.",
+      "section": "primary"
+    },
+    {
+      "source": "docs/deploy.md",
+      "target": "deploy.mdx",
+      "navLabel": "Deploy",
+      "title": "Deploy",
+      "description": "Install Signals Relay from a release, SAR, IaC template, or source checkout.",
+      "section": "primary"
+    },
+    {
+      "source": "docs/operate.md",
+      "target": "operate.mdx",
+      "navLabel": "Operate",
+      "title": "Operate",
+      "description": "Confirm traces are moving, debug export failures, and review production checks.",
+      "section": "primary"
+    },
+    {
+      "source": "docs/architecture.md",
+      "target": "architecture.mdx",
+      "navLabel": "Architecture",
+      "title": "Architecture",
+      "description": "See how CloudWatch Logs, Lambda, Kinesis, tumbling windows, and OTLP export fit together.",
+      "section": "primary"
+    },
+    {
+      "source": "docs/reference.md",
+      "target": "reference.mdx",
+      "navLabel": "Reference",
+      "title": "Reference",
+      "description": "Find the parameters, Secrets Manager format, export modes, and runtime contracts.",
+      "section": "primary"
+    },
+    {
+      "source": "docs/maintainers/release.md",
+      "target": "maintainers/release.mdx",
+      "navLabel": "Release guide",
+      "title": "Release guide",
+      "description": "Publish a coordinated Signals Relay release from this repository.",
+      "section": "maintainers"
+    },
+    {
+      "source": "docs/design-history/cloudwatch-kinesis-lambda-relay.md",
+      "target": "design-history/cloudwatch-kinesis-lambda-relay.mdx",
+      "navLabel": "CloudWatch to Kinesis relay",
+      "title": "CloudWatch Logs to Kinesis to Lambda relay",
+      "description": "Review the historical direct CloudWatch Logs to Kinesis relay design and why it was not chosen.",
+      "section": "design-history"
+    },
+    {
+      "source": "docs/design-history/long-poller-sqs-delayed-task.md",
+      "target": "design-history/long-poller-sqs-delayed-task.mdx",
+      "navLabel": "Long poller with SQS",
+      "title": "Long poller with SQS for delayed work",
+      "description": "Review the historical long-poller design and the tradeoffs that kept it out of the hot path.",
+      "section": "design-history"
+    }
+  ]
+}

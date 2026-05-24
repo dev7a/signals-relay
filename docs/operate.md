@@ -1,7 +1,8 @@
-# Troubleshooting
+# Operate
 
 Use this guide after deployment when you need to verify the stack, diagnose
-missing spans, or understand failure queues.
+missing spans, understand failure queues, or decide whether the beta pipeline is
+ready for a production environment.
 
 Start with the shortest path that proves data is moving:
 
@@ -11,7 +12,7 @@ Start with the shortest path that proves data is moving:
 4. The relay consumes Kinesis windows.
 5. The relay exports OTLP to the configured backend.
 
-## Quick Verification
+## Quick verification
 
 After creating or updating the stack:
 
@@ -29,9 +30,9 @@ After creating or updating the stack:
 7. Watch the partitioner and relay Lambda logs while spans are emitted.
 8. Confirm both failure queues remain empty during normal traffic.
 
-## Stack Creation Fails
+## Stack creation fails
 
-### Source Log Group Does Not Exist
+### Source log group does not exist
 
 The stack creates a subscription filter on the source log group, but it does not
 create the log group. Create the log group first or pass the correct
@@ -49,7 +50,7 @@ CloudWatch Logs limits the number of subscription filters on a log group. If
 another relay or processor already subscribes to the same log group, remove the
 conflicting subscription or choose a different source log group.
 
-### Missing CloudFormation Capabilities
+### Missing CloudFormation capabilities
 
 Deployments need these capabilities when the deployment tool requests them
 explicitly:
@@ -61,12 +62,12 @@ CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_RESOURCE_POLICY CAPABILITY_AUTO_E
 `CAPABILITY_AUTO_EXPAND` is required because the deployment uses the SAM
 transform and nested SAR application flow.
 
-### SAR Application Is Not Deployable By This Account
+### SAR application is not deployable by this account
 
 Quick-launch templates deploy the published SAR application as a nested
-application. They do not bypass SAR sharing. Ensure the target account can deploy
-the selected application version through account, organization, or public
-sharing.
+application. They do not bypass SAR sharing. Ensure the target account can
+deploy the selected application version through account, organization, or
+public sharing.
 
 ### Collector mode is missing the collector layer ARN
 
@@ -74,34 +75,34 @@ sharing.
 the simplest test path, or provide an OpenTelemetry Lambda collector extension
 layer ARN that matches the target Region and architecture.
 
-## No Spans Arrive
+## No spans arrive
 
-### Application Signals Is Not Writing Source Records
+### Application Signals is not writing source records
 
 Signals Relay can only process records that already exist in the source log
 group. Confirm the application or service emits Application Signals spans into
 the expected log group.
 
-### Wrong Account Or Region
+### Wrong account or Region
 
 CloudWatch Logs, the subscription filter, the Lambdas, Kinesis, SQS, and the
 shared secret are Region-scoped. Confirm you are checking the same account and
 Region as the deployed stack.
 
-### Subscription Filter Is Missing
+### Subscription filter is missing
 
 If the stack succeeded but no partitioner logs appear, inspect the source log
 group's subscription filters. The destination should be the partitioner Lambda.
 
-### Source Records Do Not Include Trace IDs
+### Source records do not include trace IDs
 
 The partitioner republishes records with `partitionKey = traceId`. Records that
 do not match the expected Application Signals span shape cannot be grouped into
 trace-aligned Kinesis lanes.
 
-## Relay Runs But Nothing Is Exported
+## Relay runs but nothing is exported
 
-### Secret Is Missing Or Invalid
+### Secret is missing or invalid
 
 The shared secret must be named:
 
@@ -120,10 +121,10 @@ The secret value must be JSON:
 }
 ```
 
-Headers are optional. In direct mode, the relay validates header names and values
-before sending requests.
+Headers are optional. In direct mode, the relay validates header names and
+values before sending requests.
 
-### Endpoint Path Is Ambiguous
+### Endpoint path is ambiguous
 
 For direct mode, the endpoint can be a base OTLP/HTTP endpoint. Signals Relay
 appends `/v1/traces` when the configured path does not already end with
@@ -144,11 +145,12 @@ authorization headers, expired tokens, unsupported OTLP/HTTP paths, backend rate
 limits, or a backend that expects a collector-specific configuration instead of
 direct OTLP/HTTP protobuf.
 
-### VPC Deployment Cannot Reach Dependencies
+### VPC deployment cannot reach dependencies
 
-The VPC launch path passes existing VPC and subnet selections to the application.
-It does not create NAT gateways, route-table entries, or VPC endpoints. Selected
-subnets must reach Secrets Manager and the OTLP destination over HTTPS.
+The VPC launch path passes existing VPC and subnet selections to the
+application. It does not create NAT gateways, route-table entries, or VPC
+endpoints. Selected subnets must reach Secrets Manager and the OTLP destination
+over HTTPS.
 
 ### Collector mode cannot start the collector
 
@@ -156,9 +158,9 @@ Confirm `CollectorExtensionArn` points to a valid collector extension layer for
 the target Region and architecture. Then inspect the relay Lambda logs for
 extension startup errors.
 
-## Failure Queues
+## Failure queues
 
-### Publish-Failure Queue
+### Publish-failure queue
 
 The publish-failure queue receives source records that could not be written to
 Kinesis after retry handling. Inspect this queue when partitioner logs mention
@@ -168,7 +170,7 @@ Replaying old publish-failure messages can help with recovery, but managed-link
 reconciliation is limited to the original relay window. A replay after that
 window closes may export spans without same-window decorator matches.
 
-### Invocation-Failure Queue
+### Invocation-failure queue
 
 The invocation-failure queue receives unexpected asynchronous partitioner
 invocation failures. Inspect this queue when Lambda reports async delivery
@@ -190,15 +192,28 @@ Before production use, add alarms or dashboards for:
 Also review Kinesis shard count, retention, and cost. The default application
 uses a provisioned stream with one shard and 24-hour retention.
 
-## After Secret Rotation
+## Production-hardening checklist
+
+Signals Relay is experimental. Before production use, review:
+
+- Kinesis shard count, throughput, retention, and cost
+- CloudWatch alarms for Lambda errors, throttles, duration, and iterator age
+- failure-queue alerting, inspection, and replay procedures
+- VPC egress to Secrets Manager and the OTLP backend
+- secret rotation and `DeploymentId` refresh behavior
+- OTLP backend authentication, rate limits, and rejected-payload behavior
+- whether 60-second window-bounded reconciliation fits your trace correctness
+  requirements
+
+## After secret rotation
 
 The relay reads the shared secret during startup in direct mode. After rotating
 credentials, update the stack with a new `DeploymentId` value when you need
 CloudFormation to force fresh Lambda execution environments.
 
-## When to escalate to architecture review
+## When to revisit the architecture
 
 If the deployment works but the shape does not fit your reliability model, read
-[Current architecture](./current-architecture.md). Pay special attention to
-window-bounded reconciliation, replay behavior, Kinesis operational ownership,
-and the lack of durable external reconciliation state on the hot path.
+[Architecture](./architecture.md). Pay special attention to window-bounded
+reconciliation, replay behavior, Kinesis operational ownership, and the lack of
+durable external reconciliation state on the hot path.

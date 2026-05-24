@@ -2,10 +2,10 @@
 
 Use this guide to publish a coordinated release from this repository.
 
-For operator install paths, quick-launch deployment, IaC examples, and upgrade
-guidance, see [install.md](./install.md).
+For operator deployment paths, quick-launch deployment, IaC examples, and
+upgrade guidance, see [Deploy](../deploy.md).
 
-For website generation and local preview, see [`site/README.md`](../site/README.md).
+For website generation and local preview, see [`site/README.md`](../../site/README.md).
 
 ## Release Prerequisites
 
