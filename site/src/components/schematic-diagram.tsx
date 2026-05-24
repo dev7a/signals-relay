@@ -128,14 +128,29 @@ export function SchematicDiagram() {
         <g className="schematic__hum">
           <rect fill="var(--signals-gold)" fillOpacity="0.07" height="76" stroke="var(--signals-gold)" strokeOpacity="0.8" strokeWidth="1.2" width="86" x="540" y="64" />
           <rect fill="url(#schematic-hatch)" height="68" opacity="0.4" width="78" x="544" y="68" />
+          <g className="schematic__backend-dashboard" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <rect fill="var(--signals-bg)" fillOpacity="0.46" height="34" stroke="var(--signals-gold)" strokeOpacity="0.9" strokeWidth="1.2" width="48" x="559" y="84" />
+            <path d="M 559 94 L 607 94" stroke="var(--signals-gold)" strokeOpacity="0.5" strokeWidth="1" />
+            <path d="M 568 110 L 568 104" stroke="var(--signals-text)" strokeOpacity="0.7" strokeWidth="2" />
+            <path d="M 576 110 L 576 101" stroke="var(--signals-text)" strokeOpacity="0.85" strokeWidth="2" />
+            <path d="M 584 110 L 584 106" stroke="var(--signals-text)" strokeOpacity="0.62" strokeWidth="2" />
+            <path d="M 592 110 L 592 99" stroke="var(--signals-text)" strokeOpacity="0.9" strokeWidth="2" />
+            <path d="M 566 90 L 574 86 L 584 89 L 595 84" stroke="var(--signals-rust)" strokeWidth="1.5" />
+            <circle cx="566" cy="90" fill="var(--signals-rust)" r="1.8" stroke="none" />
+            <circle cx="595" cy="84" fill="var(--signals-rust)" r="1.8" stroke="none" />
+          </g>
           <text fill="var(--signals-text)" fontFamily="Instrument Serif,serif" fontSize="13" fontStyle="italic" textAnchor="middle" x="583" y="46">Backend</text>
           <text fill="var(--signals-gold)" fontFamily="JetBrains Mono,monospace" fontSize="8" textAnchor="middle" x="583" y="158">OTLP/HTTP</text>
         </g>
 
         <g fill="none" stroke="var(--signals-text)" strokeOpacity="0.22" strokeWidth="1.4">
           <path d="M 160 246 L 220 246" />
+          <path d="M 320 246 C 338 246 344 212 362 212" />
           <path d="M 320 246 L 362 246" />
+          <path d="M 320 246 C 338 246 344 280 362 280" />
+          <path d="M 508 212 C 522 212 526 246 540 246" />
           <path d="M 508 246 L 540 246" />
+          <path d="M 508 280 C 522 280 526 246 540 246" />
           <path d="M 583 220 L 583 140" />
         </g>
 
@@ -143,11 +158,23 @@ export function SchematicDiagram() {
           <path d="M 160 246 L 220 246" stroke="url(#schematic-stream)" strokeDasharray="14 60">
             <animate attributeName="stroke-dashoffset" dur="1.6s" from="74" repeatCount="indefinite" to="0" />
           </path>
-          <path d="M 320 246 L 362 246" stroke="url(#schematic-stream)" strokeDasharray="10 40">
+          <path d="M 320 246 C 338 246 344 212 362 212" stroke="url(#schematic-stream)" strokeDasharray="8 40">
             <animate attributeName="stroke-dashoffset" dur="1.4s" from="50" repeatCount="indefinite" to="0" />
           </path>
-          <path d="M 508 246 L 540 246" stroke="url(#schematic-rust)" strokeDasharray="8 30">
+          <path d="M 320 246 L 362 246" stroke="url(#schematic-stream)" strokeDasharray="8 40">
+            <animate attributeName="stroke-dashoffset" begin="-0.3s" dur="1.4s" from="50" repeatCount="indefinite" to="0" />
+          </path>
+          <path d="M 320 246 C 338 246 344 280 362 280" stroke="url(#schematic-stream)" strokeDasharray="8 40">
+            <animate attributeName="stroke-dashoffset" begin="-0.6s" dur="1.4s" from="50" repeatCount="indefinite" to="0" />
+          </path>
+          <path d="M 508 212 C 522 212 526 246 540 246" stroke="url(#schematic-rust)" strokeDasharray="7 30">
             <animate attributeName="stroke-dashoffset" dur="1.3s" from="38" repeatCount="indefinite" to="0" />
+          </path>
+          <path d="M 508 246 L 540 246" stroke="url(#schematic-rust)" strokeDasharray="7 30">
+            <animate attributeName="stroke-dashoffset" begin="-0.3s" dur="1.3s" from="38" repeatCount="indefinite" to="0" />
+          </path>
+          <path d="M 508 280 C 522 280 526 246 540 246" stroke="url(#schematic-rust)" strokeDasharray="7 30">
+            <animate attributeName="stroke-dashoffset" begin="-0.6s" dur="1.3s" from="38" repeatCount="indefinite" to="0" />
           </path>
           <path d="M 583 220 L 583 140" stroke="url(#schematic-rust)" strokeDasharray="14 60">
             <animate attributeName="stroke-dashoffset" dur="2.2s" from="74" repeatCount="indefinite" to="0" />
@@ -156,16 +183,22 @@ export function SchematicDiagram() {
 
         <g className="schematic__flow">
           <circle fill="var(--signals-text)" r="3">
-            <animateMotion dur="3s" path="M 160 246 L 220 246 L 320 246 L 362 246" repeatCount="indefinite" />
+            <animateMotion dur="3s" path="M 160 246 L 220 246 L 320 246 C 338 246 344 212 362 212" repeatCount="indefinite" />
           </circle>
           <circle fill="var(--signals-text)" opacity="0.7" r="3">
             <animateMotion begin="-1s" dur="3s" path="M 160 246 L 220 246 L 320 246 L 362 246" repeatCount="indefinite" />
           </circle>
+          <circle fill="var(--signals-text)" opacity="0.55" r="3">
+            <animateMotion begin="-2s" dur="3s" path="M 160 246 L 220 246 L 320 246 C 338 246 344 280 362 280" repeatCount="indefinite" />
+          </circle>
           <circle fill="var(--signals-rust)" r="3">
-            <animateMotion dur="2.2s" path="M 508 246 L 540 246 L 583 246 L 583 140" repeatCount="indefinite" />
+            <animateMotion dur="2.2s" path="M 508 212 C 522 212 526 246 540 246 L 583 246 L 583 140" repeatCount="indefinite" />
           </circle>
           <circle fill="var(--signals-rust)" opacity="0.7" r="3">
             <animateMotion begin="-1s" dur="2.2s" path="M 508 246 L 540 246 L 583 246 L 583 140" repeatCount="indefinite" />
+          </circle>
+          <circle fill="var(--signals-rust)" opacity="0.55" r="3">
+            <animateMotion begin="-1.6s" dur="2.2s" path="M 508 280 C 522 280 526 246 540 246 L 583 246 L 583 140" repeatCount="indefinite" />
           </circle>
         </g>
 
