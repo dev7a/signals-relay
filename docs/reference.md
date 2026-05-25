@@ -154,6 +154,6 @@ Signals Relay does not create the source `aws/spans` log group, create a backend
 collector, manage your OTLP credentials, add VPC NAT gateways or endpoints, or
 provide a durable cross-window reconciliation database.
 
-Signals Relay is in beta. Run it in dev or staging today, then review the
+Before using Signals Relay for critical production telemetry, review the
 [production-hardening checklist](./operate.md#production-hardening-checklist)
-before you ship.
+and confirm that the operational tradeoffs fit your environment.

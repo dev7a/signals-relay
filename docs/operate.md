@@ -1,7 +1,7 @@
 # Operate
 
 Use this guide after deployment when you need to verify the stack, diagnose
-missing spans, understand failure queues, or decide whether the beta pipeline is
+missing spans, understand failure queues, or decide whether the pipeline is
 ready for a production environment.
 
 Start with the shortest path that proves data is moving:
@@ -194,7 +194,7 @@ uses a provisioned stream with one shard and 24-hour retention.
 
 ## Production-hardening checklist
 
-Signals Relay is experimental. Before production use, review:
+Before production use, review:
 
 - Kinesis shard count, throughput, retention, and cost
 - CloudWatch alarms for Lambda errors, throttles, duration, and iterator age

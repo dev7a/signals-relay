@@ -110,7 +110,7 @@ batching.
 
 Signals Relay may not be a good fit when:
 
-- you need production-ready guarantees without additional hardening
+- you need a fully managed trace export service with no operational ownership
 - you cannot tolerate 60-second window-bounded reconciliation
 - you need durable reconciliation state across windows
 - you cannot operate Kinesis, Lambda failure queues, and CloudWatch alarms

@@ -16,9 +16,9 @@ backend, or your own OTel collector.
 </div>
 
 > [!NOTE]
-> Signals Relay is in beta. Run it in dev or staging today, then review the
+> Review the
 > [production-hardening checklist](./docs/operate.md#production-hardening-checklist)
-> before you ship.
+> before using Signals Relay for critical production telemetry.
 
 ## Who Should Use This
 
@@ -39,7 +39,7 @@ modify, or publish the application yourself.
 
 Signals Relay may not be the right tool when:
 
-- you need production-ready guarantees today without additional hardening
+- you need a fully managed trace export service with no operational ownership
 - you cannot tolerate 60-second window-bounded reconciliation for managed-link
   decorators
 - you need durable reconciliation state that spans more than one tumbling
