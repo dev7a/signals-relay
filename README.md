@@ -124,6 +124,13 @@ failure handling, and tradeoffs.
 - [Release guide](./docs/maintainers/release.md): maintainer-only release and
   publication workflow
 
+## Contributing
+
+Signals Relay welcomes substantiated bug reports, feature requests, design
+feedback, and real-world use cases through GitHub issues. The project does not
+accept unsolicited external pull requests; see
+[Contributing](./CONTRIBUTING.md) for the full policy and rationale.
+
 ## Release Surfaces
 
 Each release gives operators two install surfaces:
