@@ -1,9 +1,12 @@
-# Current Architecture
+# Architecture
 
-This is the canonical architecture document for this repository's
-implementation.
+Signals Relay adds a trace-aligned buffering layer between CloudWatch
+Application Signals and OTLP export. The goal is to avoid forwarding whatever
+small batches CloudWatch Logs happens to deliver and instead export bounded,
+trace-grouped OTLP payloads.
 
-For terminology and deployment inputs, start with [concepts.md](./concepts.md).
+For exact deployment inputs, parameters, and export-mode contracts, see
+[Reference](./reference.md).
 
 ## Problem
 
@@ -22,7 +25,7 @@ can be grouped by trace and exported in bounded batches.
 </picture>
 </div>
 
-## Runtime Data Flow
+## Runtime data flow
 
 1. CloudWatch Logs sends `aws/spans` records to the partitioner Lambda through a
    subscription filter.
@@ -30,21 +33,20 @@ can be grouped by trace and exported in bounded batches.
    `partitionKey = traceId`.
 3. Kinesis buffers and groups records by partition key.
 4. The relay Lambda consumes the stream with a 60-second tumbling window.
-5. Managed-link decorators are reconciled against linkable target spans within the
-   active window.
+5. Managed-link decorators are reconciled against linkable target spans within
+   the active window.
 6. On the final window invoke, completed spans are converted to OTLP.
 7. The relay exports OTLP either directly or through the upstream OpenTelemetry
    Lambda collector extension.
 
-The Kinesis stream is not just a buffer; it is where the repository takes
+The Kinesis stream is not just a buffer; it is where the application takes
 control of grouping by `traceId` rather than relying on the CloudWatch Logs
 delivery shape.
 
-## Why This Architecture Was Chosen
+## Why this architecture was chosen
 
-The current design was chosen because buffering alone is not enough. Signals
-Relay also needs trace-based grouping and a short reconciliation period for
-managed-link decorators.
+Buffering alone is not enough. Signals Relay also needs trace-based grouping
+and a short reconciliation period for managed-link decorators.
 
 The partitioner, Kinesis stream, and tumbling-window relay provide that shape:
 
@@ -60,59 +62,20 @@ This keeps the hot path event-driven while still giving the relay enough local
 context to reconcile managed links. It also makes the tradeoff explicit:
 correctness is limited to the active window.
 
-## Export Modes
+## Export shape
 
-| Topic | Direct mode | Collector mode |
+Signals Relay supports two export modes:
+
+| Mode | Best fit | Destination |
 | --- | --- | --- |
-| Stack value | `ExportMode=direct` | `ExportMode=collector` |
-| Default | Yes | No |
-| Requires `CollectorExtensionArn` | No | Yes |
-| Shared secret consumer | Relay Lambda | OpenTelemetry Lambda collector extension config |
-| Local target | OTLP backend URL from the secret | `http://localhost:4318/v1/traces` |
-| Best fit | Simple evaluation and fewer moving parts | Environments that standardize on the collector extension |
+| `direct` | Evaluation and fewer moving parts | OTLP/HTTP backend URL from the shared secret |
+| `collector` | Teams that standardize on the Lambda collector extension | Local collector extension at `http://localhost:4318/v1/traces` |
 
-### Direct
+Both modes use the same stack parameters and the same
+`signals-relay/secrets/collector` secret. See [Reference](./reference.md) for
+the full mode comparison and secret contract.
 
-`ExportMode=direct` is the default. The relay Lambda reads the shared
-`signals-relay/secrets/collector` secret from Secrets Manager during startup
-and exports OTLP HTTP/protobuf directly to the configured endpoint.
-
-The secret uses this JSON shape:
-
-```json
-{
-  "endpoint": "https://example.com",
-  "headers": {
-    "authorization": "Bearer ...",
-    "x-api-key": "..."
-  }
-}
-```
-
-Direct mode enables gzip compression for outbound OTLP trace requests.
-
-The endpoint may be a base OTLP/HTTP endpoint such as `https://example.com`.
-Signals Relay resolves the trace export URL and appends `/v1/traces` when the
-configured path does not already end with `/v1/traces`.
-
-### Collector
-
-`ExportMode=collector` sends OTLP HTTP/protobuf to
-`http://localhost:4318` inside the relay Lambda execution environment. This
-mode requires `CollectorExtensionArn`, an upstream OpenTelemetry Lambda
-collector extension layer ARN for the target Region and architecture.
-
-The collector reads `config/collector.yaml` from the deployed layer at
-`/opt/collector.yaml`. That config resolves the same
-`signals-relay/secrets/collector` secret:
-
-- `${secretsmanager:signals-relay/secrets/collector#endpoint}`
-- `${secretsmanager:signals-relay/secrets/collector#headers}`
-
-Collector mode keeps export behavior under the collector extension while
-preserving the same stack parameters and secret contract as direct mode.
-
-## Failure Handling
+## Failure handling
 
 The partitioner retries only retryable `PutRecords` failures, and only the
 failed subset of records. Non-retryable records and retry-exhausted records go
@@ -155,10 +118,10 @@ Signals Relay may not be a good fit when:
 - your source spans arrive too late or too sparsely for tumbling-window
   reconciliation to be useful
 
-## Design background
+## Design history
 
 These pages are retained as alternative design and tradeoff history. They are
 not the recommended deployment path.
 
-- [CloudWatch Logs to Kinesis to Lambda relay](./cloudwatch-kinesis-lambda-relay.md)
-- [Long poller with SQS for delayed work](./long-poller-sqs-delayed-task.md)
+- [CloudWatch Logs to Kinesis to Lambda relay](./design-history/cloudwatch-kinesis-lambda-relay.md)
+- [Long poller with SQS for delayed work](./design-history/long-poller-sqs-delayed-task.md)

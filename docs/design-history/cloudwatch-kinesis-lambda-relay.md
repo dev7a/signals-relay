@@ -9,6 +9,8 @@
 This alternative sends CloudWatch Logs subscription records directly to Kinesis
 Data Streams. A relay Lambda then consumes the stream and emits OTLP.
 
+For the implemented pipeline, see [Architecture](../architecture.md).
+
 How it works:
 
 1. CloudWatch Logs subscription sends `aws/spans` records to Kinesis.

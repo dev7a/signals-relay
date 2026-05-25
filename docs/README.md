@@ -1,45 +1,42 @@
-# Documentation
+# Signals Relay docs
 
-Choose the document that matches your task.
+Signals Relay exports AWS Application Signals traces from CloudWatch Logs to an
+OTLP/HTTP destination. It is a serverless AWS pipeline for teams that want to
+keep Application Signals as the source of truth while sending traces to their
+observability backend or their own OpenTelemetry Collector.
 
-## Start Here
+## For a first deployment
 
-| Task | Read |
-| --- | --- |
-| New evaluator | [Concepts](./concepts.md), then [Installation and deployment](./install.md) |
-| Deploying from a release | [Installation and deployment](./install.md) |
-| Verifying or debugging an install | [Troubleshooting](./troubleshooting.md) |
-| Explaining the runtime design | [Current architecture](./current-architecture.md) |
-| Publishing a version | [Release guide](./release.md) |
+Start with [Deploy](./deploy.md). It covers the release quick-launch flow, SAR
+deployment, IaC examples, source deployment, and upgrades.
 
-## Deploy and operate
+After the stack is running, use [Operate](./operate.md) to prove trace export is
+working, diagnose missing spans, and review the production checks.
 
-- [Root README](../README.md): project overview, fastest install path,
-  architecture summary, and documentation map
-- [Installation and deployment](./install.md): operator guide for quick launch
-  from GitHub Releases, SAR installs, IaC composition, source deployment, and
-  upgrades
-- [Troubleshooting](./troubleshooting.md): operator runbook for post-deploy
-  verification, missing spans, export failures, and failure queues
+Use [Architecture](./architecture.md) when you want to understand why the relay
+uses Lambda, Kinesis, and a tumbling window. Use [Reference](./reference.md) when
+you need exact parameters, secret formats, export modes, or runtime contracts.
 
-## Understand the architecture
+## What you need
 
-- [Concepts](./concepts.md): glossary, export modes, secret contract, and core
-  deployment inputs for readers new to the project
-- [Current architecture](./current-architecture.md): canonical explanation of
-  the implemented pipeline, why it uses the partitioner, Kinesis streams, and
-  the tumbling window, as well as export modes, failure handling, and tradeoffs
+Signals Relay assumes:
 
-## Maintain the release
+- the source CloudWatch Logs log group already exists; the default is
+  `aws/spans`
+- the target account can deploy the selected Serverless Application Repository
+  version
+- the shared Secrets Manager secret exists in the target account and Region
+- your destination accepts OTLP/HTTP trace export
 
-- [Release guide](./release.md): maintainer-only workflow for coordinated
-  versions, SAR publication, GitHub Releases, and CloudFormation launch
-  artifacts
+The fastest evaluation path is the versioned CloudFormation quick-launch link
+from a GitHub Release. If you need IaC examples, source deployment, or upgrade
+steps, start with [Deploy](./deploy.md).
 
-## Design background
+## Maintainer and background notes
 
-These pages document alternative design and tradeoff decisions and are not the
-recommended deployment path.
+These pages are public because they are useful when contributing to the project
+or comparing the current design with alternatives:
 
-- [CloudWatch Logs to Kinesis to Lambda relay](./cloudwatch-kinesis-lambda-relay.md)
-- [Long poller with SQS for delayed work](./long-poller-sqs-delayed-task.md)
+- [Release guide](./maintainers/release.md)
+- [CloudWatch Logs to Kinesis to Lambda relay](./design-history/cloudwatch-kinesis-lambda-relay.md)
+- [Long poller with SQS for delayed work](./design-history/long-poller-sqs-delayed-task.md)

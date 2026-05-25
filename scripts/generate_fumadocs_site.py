@@ -9,24 +9,7 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-SOURCE_MAP = {
-    PurePosixPath("docs/README.md"): PurePosixPath("index.mdx"),
-    PurePosixPath("docs/concepts.md"): PurePosixPath("concepts.mdx"),
-    PurePosixPath("docs/install.md"): PurePosixPath("install.mdx"),
-    PurePosixPath("docs/troubleshooting.md"): PurePosixPath("troubleshooting.mdx"),
-    PurePosixPath("docs/current-architecture.md"): PurePosixPath("current-architecture.mdx"),
-    PurePosixPath("docs/release.md"): PurePosixPath("release.mdx"),
-}
-
-PAGE_ORDER = [
-    "index",
-    "concepts",
-    "install",
-    "troubleshooting",
-    "current-architecture",
-    "release",
-]
-
+NAV_PATH = PurePosixPath("docs/nav.json")
 ASSET_ROOTS = (
     (PurePosixPath("docs/assets"), PurePosixPath("docs-assets/docs/assets")),
     (PurePosixPath("svgs"), PurePosixPath("docs-assets/svgs")),
@@ -34,16 +17,7 @@ ASSET_ROOTS = (
 SITE_ROUTE_OVERRIDES = {
     PurePosixPath("README.md"): "",
 }
-PAGE_TITLE_OVERRIDES = {
-    PurePosixPath("docs/current-architecture.md"): "Architecture",
-}
 SOURCE_LINK_OVERRIDES = {
-    PurePosixPath(
-        "docs/cloudwatch-kinesis-lambda-relay.md"
-    ): "https://github.com/dev7a/signals-relay/blob/main/docs/cloudwatch-kinesis-lambda-relay.md",
-    PurePosixPath(
-        "docs/long-poller-sqs-delayed-task.md"
-    ): "https://github.com/dev7a/signals-relay/blob/main/docs/long-poller-sqs-delayed-task.md",
     PurePosixPath("site/README.md"): "https://github.com/dev7a/signals-relay/blob/main/site/README.md",
 }
 
@@ -67,11 +41,26 @@ GITHUB_ALERT_TYPES = {
 
 
 @dataclass(frozen=True)
+class SectionRecord:
+    id: str
+    title: str
+
+
+@dataclass(frozen=True)
 class PageRecord:
     source_rel: PurePosixPath
     target_rel: PurePosixPath
+    nav_label: str
     title: str
-    description: str | None
+    description: str
+    section: str
+
+
+@dataclass(frozen=True)
+class NavConfig:
+    title: str
+    sections: dict[str, SectionRecord]
+    pages: list[PageRecord]
 
 
 def normalize_repo_rel(path: PurePosixPath) -> PurePosixPath:
@@ -116,89 +105,9 @@ def strip_leading_h1(text: str) -> str:
     return text
 
 
-def extract_title(text: str, fallback: str) -> str:
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("# "):
-            return stripped[2:].strip()
-    return fallback
-
-
-def extract_description(text: str) -> str | None:
-    lines = strip_leading_h1(text).splitlines()
-    block: list[str] = []
-    in_fence = False
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith("```"):
-            in_fence = not in_fence
-            if block:
-                break
-            continue
-        if in_fence:
-            continue
-        if not stripped:
-            if block:
-                break
-            continue
-        if stripped.startswith(("#", ">", "-", "*", "|", "<")):
-            if block:
-                break
-            continue
-        block.append(stripped)
-    if not block:
-        return None
-    return " ".join(block)
-
-
-def strip_leading_description_block(text: str, description: str | None) -> str:
-    if not description:
-        return text
-
-    lines = text.splitlines()
-    block: list[str] = []
-    block_start: int | None = None
-    block_end: int | None = None
-    in_fence = False
-
-    for index, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped.startswith("```"):
-            in_fence = not in_fence
-            if block:
-                block_end = index
-                break
-            continue
-        if in_fence:
-            continue
-        if not stripped:
-            if block:
-                block_end = index
-                break
-            continue
-        if stripped.startswith(("#", ">", "-", "*", "|", "<")):
-            if block:
-                block_end = index
-            else:
-                return text
-            break
-        if block_start is None:
-            block_start = index
-        block.append(stripped)
-
-    if not block or block_start is None:
-        return text
-    if " ".join(block) != description:
-        return text
-    if block_end is None:
-        block_end = len(lines)
-    return "\n".join(lines[block_end:]).lstrip("\n")
-
-
-def build_frontmatter(title: str, description: str | None) -> str:
+def build_frontmatter(title: str, description: str) -> str:
     lines = ["---", f"title: {json.dumps(title)}"]
-    if description:
-        lines.append(f"description: {json.dumps(description)}")
+    lines.append(f"description: {json.dumps(description)}")
     lines.extend(("---", ""))
     return "\n".join(lines)
 
@@ -236,6 +145,11 @@ def relative_asset_href(target_rel: PurePosixPath, repo_rel: PurePosixPath) -> s
 
 
 def rewrite_html_images(text: str, source_rel: PurePosixPath, target_rel: PurePosixPath) -> str:
+    attr_names = {
+        "class": "className",
+        "srcset": "srcSet",
+    }
+
     def rewrite_attrs(match: re.Match[str], tag_name: str, attr_name: str) -> str:
         attrs = ATTR_RE.findall(match.group(1))
         rewritten: list[tuple[str, str]] = []
@@ -248,7 +162,7 @@ def rewrite_html_images(text: str, source_rel: PurePosixPath, target_rel: PurePo
                     if relative:
                         value = relative
                 target_found = True
-            rewritten.append((key, value))
+            rewritten.append((attr_names.get(key, key), value))
         if not target_found:
             return match.group(0)
         rendered = " ".join(f'{key}="{value}"' for key, value in rewritten)
@@ -382,23 +296,90 @@ def transform_github_alerts(text: str) -> str:
     return replace_outside_code_fences(text, replacer)
 
 
-def build_records(repo_root: Path) -> list[PageRecord]:
-    records: list[PageRecord] = []
-    order = {target: index for index, target in enumerate(SOURCE_MAP.values())}
-    for source_rel, target_rel in sorted(SOURCE_MAP.items(), key=lambda item: order[item[1]]):
-        source_path = repo_root / source_rel
-        text = source_path.read_text(encoding="utf-8")
-        records.append(
+def read_required_string(data: dict[str, object], key: str, context: str) -> str:
+    value = data.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{context} must define a non-empty string field {key!r}")
+    return value
+
+
+def read_repo_path(data: dict[str, object], key: str, context: str) -> PurePosixPath:
+    value = read_required_string(data, key, context)
+    path = PurePosixPath(value)
+    if path.is_absolute() or ".." in path.parts:
+        raise ValueError(f"{context} field {key!r} must be a repository-relative path")
+    return normalize_repo_rel(path)
+
+
+def load_nav_config(repo_root: Path) -> NavConfig:
+    nav_file = repo_root / NAV_PATH
+    data = json.loads(nav_file.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"{NAV_PATH} must contain a JSON object")
+
+    title = read_required_string(data, "title", NAV_PATH.as_posix())
+
+    raw_sections = data.get("sections")
+    if not isinstance(raw_sections, list) or not raw_sections:
+        raise ValueError(f"{NAV_PATH} must define a non-empty sections array")
+
+    sections: dict[str, SectionRecord] = {}
+    for index, raw_section in enumerate(raw_sections):
+        context = f"{NAV_PATH}: sections[{index}]"
+        if not isinstance(raw_section, dict):
+            raise ValueError(f"{context} must be an object")
+        section = SectionRecord(
+            id=read_required_string(raw_section, "id", context),
+            title=read_required_string(raw_section, "title", context),
+        )
+        if section.id in sections:
+            raise ValueError(f"{context} duplicates section id {section.id!r}")
+        sections[section.id] = section
+
+    raw_pages = data.get("pages")
+    if not isinstance(raw_pages, list) or not raw_pages:
+        raise ValueError(f"{NAV_PATH} must define a non-empty pages array")
+
+    pages: list[PageRecord] = []
+    seen_sources: set[PurePosixPath] = set()
+    seen_targets: set[PurePosixPath] = set()
+    for index, raw_page in enumerate(raw_pages):
+        context = f"{NAV_PATH}: pages[{index}]"
+        if not isinstance(raw_page, dict):
+            raise ValueError(f"{context} must be an object")
+        source_rel = read_repo_path(raw_page, "source", context)
+        target_rel = read_repo_path(raw_page, "target", context)
+        section_id = read_required_string(raw_page, "section", context)
+        if section_id not in sections:
+            raise ValueError(f"{context} references unknown section {section_id!r}")
+        if source_rel in seen_sources:
+            raise ValueError(f"{context} duplicates source {source_rel}")
+        if target_rel in seen_targets:
+            raise ValueError(f"{context} duplicates target {target_rel}")
+        if source_rel.suffix != ".md":
+            raise ValueError(f"{context} source must be a Markdown file")
+        if target_rel.suffix != ".mdx":
+            raise ValueError(f"{context} target must be an MDX file")
+        if not (repo_root / source_rel).exists():
+            raise FileNotFoundError(f"{context} source does not exist: {source_rel}")
+        seen_sources.add(source_rel)
+        seen_targets.add(target_rel)
+        pages.append(
             PageRecord(
                 source_rel=source_rel,
                 target_rel=target_rel,
-                title=PAGE_TITLE_OVERRIDES.get(
-                    source_rel, extract_title(text, target_rel.stem.replace("-", " ").title())
-                ),
-                description=extract_description(text),
+                nav_label=read_required_string(raw_page, "navLabel", context),
+                title=read_required_string(raw_page, "title", context),
+                description=read_required_string(raw_page, "description", context),
+                section=section_id,
             )
         )
-    return records
+
+    return NavConfig(title=title, sections=sections, pages=pages)
+
+
+def build_source_map(records: list[PageRecord]) -> dict[PurePosixPath, PurePosixPath]:
+    return {record.source_rel: record.target_rel for record in records}
 
 
 def write_json(path: Path, data: dict[str, object]) -> None:
@@ -432,7 +413,6 @@ def write_page(
     source_path = repo_root / record.source_rel
     raw = source_path.read_text(encoding="utf-8")
     body = strip_leading_h1(raw)
-    body = strip_leading_description_block(body, record.description)
     body = transform_github_alerts(body)
     rewritten = rewrite_content(body, record.source_rel, record.target_rel, source_map).rstrip()
     destination = content_root / record.target_rel
@@ -443,26 +423,98 @@ def write_page(
     )
 
 
-def write_meta_files(content_root: Path) -> None:
+def page_key_for_meta(target_rel: PurePosixPath) -> str:
+    if target_rel.name == "index.mdx":
+        return "index"
+    return target_rel.stem
+
+
+def write_meta_files(content_root: Path, nav: NavConfig) -> None:
+    root_pages: list[str] = []
+    folder_pages: dict[PurePosixPath, list[str]] = {}
+    folder_titles: dict[PurePosixPath, str] = {}
+
+    for record in nav.pages:
+        parent = record.target_rel.parent
+        if parent == PurePosixPath("."):
+            root_pages.append(page_key_for_meta(record.target_rel))
+            continue
+
+        folder = PurePosixPath(parent.parts[0])
+        if folder.as_posix() not in root_pages:
+            root_pages.append(folder.as_posix())
+        folder_pages.setdefault(parent, []).append(page_key_for_meta(record.target_rel))
+        folder_titles.setdefault(parent, nav.sections[record.section].title)
+
     write_json(
         content_root / "meta.json",
         {
-            "title": "Documentation",
-            "pages": PAGE_ORDER,
+            "title": nav.title,
+            "pages": root_pages,
+        },
+    )
+
+    for folder, pages in folder_pages.items():
+        write_json(
+            content_root / folder / "meta.json",
+            {
+                "title": folder_titles.get(folder, folder.name.replace("-", " ").title()),
+                "pages": pages,
+            },
+        )
+
+
+def docs_href_for_target(target_rel: PurePosixPath) -> str:
+    route = route_path_for_generated_page(target_rel)
+    return "/docs/" if not route else f"/docs/{route}/"
+
+
+def nav_item_for_record(record: PageRecord) -> dict[str, str]:
+    return {
+        "label": record.nav_label,
+        "title": record.title,
+        "description": record.description,
+        "href": docs_href_for_target(record.target_rel),
+    }
+
+
+def write_generated_nav(content_root: Path, nav: NavConfig) -> None:
+    primary = [
+        nav_item_for_record(record) for record in nav.pages if record.section == "primary"
+    ]
+    secondary = []
+    for section_id, section in nav.sections.items():
+        if section_id == "primary":
+            continue
+        items = [
+            nav_item_for_record(record) for record in nav.pages if record.section == section_id
+        ]
+        if items:
+            secondary.append({"id": section_id, "title": section.title, "items": items})
+
+    write_json(
+        content_root / "nav.json",
+        {
+            "title": nav.title,
+            "primary": primary,
+            "index": [item for item in primary if item["href"] != "/docs/"],
+            "secondary": secondary,
         },
     )
 
 
 def generate_site_content(repo_root: Path, content_root: Path, public_root: Path) -> None:
-    records = build_records(repo_root)
+    nav = load_nav_config(repo_root)
+    source_map = build_source_map(nav.pages)
 
     if content_root.exists():
         shutil.rmtree(content_root)
     content_root.mkdir(parents=True, exist_ok=True)
 
-    for record in records:
-        write_page(repo_root, content_root, record, SOURCE_MAP)
-    write_meta_files(content_root)
+    for record in nav.pages:
+        write_page(repo_root, content_root, record, source_map)
+    write_meta_files(content_root, nav)
+    write_generated_nav(content_root, nav)
     copy_assets(repo_root, public_root)
 
 

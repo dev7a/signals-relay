@@ -17,7 +17,7 @@ backend, or your own OTel collector.
 
 > [!NOTE]
 > Signals Relay is in beta. Run it in dev or staging today, then review the
-> [production-hardening checklist](./docs/install.md#production-hardening-checklist)
+> [production-hardening checklist](./docs/operate.md#production-hardening-checklist)
 > before you ship.
 
 ## Who Should Use This
@@ -49,8 +49,7 @@ Signals Relay may not be the right tool when:
 - your source spans arrive too sparsely for tumbling-window reconciliation to
   be useful
 
-See the [current architecture guide](./docs/current-architecture.md) for the
-full set of tradeoffs.
+See [Architecture](./docs/architecture.md) for the full set of tradeoffs.
 
 ## Fastest Install Path
 
@@ -81,7 +80,7 @@ full set of tradeoffs.
 
 The current SAR application is published in `us-east-1`. Full install
 instructions, IaC examples, source deployment, and upgrade guidance live in
-[docs/install.md](./docs/install.md).
+[Deploy](./docs/deploy.md).
 
 ## Architecture At A Glance
 
@@ -107,23 +106,23 @@ instead of depending on the small batches CloudWatch Logs often delivers for
 `aws/spans`. Managed-link decorators are reconciled inside the active tumbling
 window before OTLP export.
 
-Read [docs/current-architecture.md](./docs/current-architecture.md) for the
-implemented architecture, export modes, failure handling, and tradeoffs.
+Read [Architecture](./docs/architecture.md) for the implemented runtime design,
+failure handling, and tradeoffs.
 
-## Documentation Map
+## Documentation
 
-- [Installation and deployment](./docs/install.md): deploy from GitHub Release
-  quick launch, SAR, IaC, or source
-- [Concepts](./docs/concepts.md): glossary, export modes, secret contract, and
-  deployment inputs
-- [Current architecture](./docs/current-architecture.md): runtime data flow,
-  export modes, failure handling, and tradeoffs
-- [Troubleshooting](./docs/troubleshooting.md): verify a deployment and diagnose
-  missing spans, export failures, and failure queues
-- [Release guide](./docs/release.md): maintainer-only release and publication
-  workflow
-- [Design background](./docs/README.md#design-background): architecture
-  decisions and alternatives considered
+- [Docs](./docs/README.md): start from the release install flow and the checks
+  that prove the relay is working
+- [Deploy](./docs/deploy.md): install from GitHub Release quick launch, SAR,
+  IaC, or source
+- [Operate](./docs/operate.md): confirm traces are moving, diagnose missing
+  spans, and review the production-hardening checklist
+- [Architecture](./docs/architecture.md): see the implemented runtime
+  design, failure handling, and tradeoffs
+- [Reference](./docs/reference.md): find terms, parameters, secrets, export
+  modes, and exact contracts
+- [Release guide](./docs/maintainers/release.md): maintainer-only release and
+  publication workflow
 
 ## Release Surfaces
 
@@ -136,7 +135,7 @@ Each release gives operators two install surfaces:
 The CloudFormation templates deploy the published SAR application. They do not
 replace SAR and do not use a mutable `latest` URL. Maintainer artifacts such as
 the reusable crate package and CloudFormation manifest are covered in
-[docs/release.md](./docs/release.md).
+[the release guide](./docs/maintainers/release.md).
 
 ## Build and validate from source
 

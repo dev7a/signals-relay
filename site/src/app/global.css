@@ -391,9 +391,9 @@ html > body[data-scroll-locked] {
   margin: 0;
   font-family: var(--font-serif), "Instrument Serif", serif;
   font-weight: 400;
-  font-size: clamp(56px, 7.4vw, 132px);
+  font-size: clamp(56px, 7.4vw, 80px);
   line-height: 0.96;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
   color: var(--signals-text);
   text-wrap: balance;
 }
