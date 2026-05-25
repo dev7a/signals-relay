@@ -7,13 +7,14 @@ on:
   workflow_dispatch:
     inputs:
       share_scope:
-        description: Whether to keep the SAR app private to the publisher account or share it privately across the AWS Organization
+        description: Whether to keep the SAR app private, share it with the AWS Organization, or make it public
         required: true
         default: account
         type: choice
         options:
           - account
           - organization
+          - public
 
 concurrency:
   group: release-${{ github.workflow }}

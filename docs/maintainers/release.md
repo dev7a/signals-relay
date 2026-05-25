@@ -33,9 +33,11 @@ verify one release in that Region. At minimum, the workflow exercises:
 - `s3:GetBucketLocation` and S3 write access for `CFN_ARTIFACT_BUCKET`
 - Serverless Application Repository publish and readback access, including
   `serverlessrepo:GetApplication`
-- For `share_scope=organization`, include
-  `serverlessrepo:GetApplicationPolicy`, `serverlessrepo:PutApplicationPolicy`, and
-  `organizations:DescribeOrganization`
+- For `share_scope=organization` or `share_scope=public`, include
+  `serverlessrepo:GetApplicationPolicy` and
+  `serverlessrepo:PutApplicationPolicy`.
+- For `share_scope=organization`, also include
+  `organizations:DescribeOrganization`.
 
 ## Manual Workflow Dispatch
 
@@ -46,16 +48,21 @@ publish.
    account.
 2. Choose `share_scope=organization` to add a private AWS Organization share
    after `sam publish` succeeds.
-3. The workflow derives the tag as `v<version>`.
-4. The workflow validates that Rust package versions and SAM `SemanticVersion`
+3. Choose `share_scope=public` to make the SAR app deployable by all AWS
+   customers after `sam publish` succeeds.
+4. The workflow derives the tag as `v<version>`.
+5. The workflow validates that Rust package versions and SAM `SemanticVersion`
    match the tag.
-5. The workflow publishes SAR before creating the Git tag.
-6. After publish succeeds, the workflow creates the tag and GitHub Release.
+6. The workflow publishes SAR before creating the Git tag.
+7. After publish succeeds, the workflow creates the tag and GitHub Release.
 
 For organization sharing, the assumed AWS role must allow
 `organizations:DescribeOrganization` and SAR application-policy updates. The
 workflow discovers the current Organization ID at runtime and applies a SAR
 application policy for that Organization.
+
+For public sharing, the assumed AWS role must allow SAR application-policy
+updates. The workflow applies and verifies a public `Deploy` policy statement.
 
 ## Tag Push Behavior
 
@@ -122,9 +129,16 @@ SAR sharing model allows it.
 contains the expected Organization ID before continuing to CloudFormation
 artifact generation.
 
+`share_scope=public` follows `sam publish` with
+`serverlessrepo put-application-policy`. The workflow verifies that the policy
+contains the public deploy statement before continuing to CloudFormation
+artifact generation. Public SAR sharing requires the application metadata to
+include both `SemanticVersion` and `LicenseUrl`; the workflow validates those
+fields in the packaged template before `sam publish`.
+
 CloudFormation launch installs still require the target account to be allowed
-to deploy the SAR application version. The launch wrappers do not bypass SAR
-sharing.
+to deploy the SAR application version through the selected sharing mode. The
+launch wrappers do not bypass SAR sharing.
 
 ## Required Capabilities
 
@@ -147,6 +161,7 @@ The workflow fails fast when:
 - SAM `SemanticVersion` does not match the release tag
 - `CFN_ARTIFACT_BUCKET` is missing or is not in `us-east-1`
 - the newly published SAR application version cannot be read back
+- the requested SAR sharing policy cannot be applied or verified
 
 If the workflow fails before `sam publish`, fix the issue and rerun the same
 version. If it fails after SAR publish, inspect SAR, the Git tag, S3 artifacts,
@@ -186,4 +201,5 @@ local `public_publish` SAM environment.
 
 The automated GitHub Actions release remains the preferred path because it also
 validates version parity, creates the tag only after successful publish, uploads
-the CloudFormation launch artifacts, and creates the GitHub Release.
+the CloudFormation launch artifacts, applies and verifies the selected SAR
+sharing policy, and creates the GitHub Release.
