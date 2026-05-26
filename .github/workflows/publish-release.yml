@@ -561,7 +561,7 @@ jobs:
           cleanup() {
             local path
 
-            for path in "${policy_stdout:-}" "${policy_stderr:-}" "${verify_stderr:-}"; do
+            for path in "${policy_stdout:-}" "${policy_stderr:-}" "${apply_stderr:-}" "${verify_stderr:-}"; do
               if [[ -n "$path" ]]; then
                 rm -f "$path"
               fi
@@ -570,6 +570,7 @@ jobs:
 
           policy_stdout="$(mktemp)"
           policy_stderr="$(mktemp)"
+          apply_stderr="$(mktemp)"
           verify_stderr="$(mktemp)"
           trap cleanup EXIT
 
@@ -605,21 +606,26 @@ jobs:
           )"
 
           applied="false"
+          last_apply_error=""
           for _ in 1 2 3 4 5; do
             if aws serverlessrepo put-application-policy \
               --region "$AWS_REGION" \
               --application-id "$APPLICATION_ID" \
               --statements "$merged_statements" \
-              >/dev/null; then
+              >/dev/null 2>"$apply_stderr"; then
               applied="true"
               break
             fi
 
+            last_apply_error="$(cat "$apply_stderr")"
             sleep 5
           done
 
           if [[ "$applied" != "true" ]]; then
             echo "::error::Failed to apply the public SAR sharing policy after publish."
+            if [[ -n "$last_apply_error" ]]; then
+              printf '%s\n' "$last_apply_error" >&2
+            fi
             exit 1
           fi
 
