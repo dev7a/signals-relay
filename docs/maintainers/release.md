@@ -135,7 +135,8 @@ contains the public deploy statement before continuing to CloudFormation
 artifact generation. Public SAR sharing requires the application metadata to
 include both `SemanticVersion` and `LicenseUrl`; the workflow also requires
 `ReadmeUrl` and validates all three fields in the packaged template before
-`sam publish`.
+`sam publish`. The SAR `ReadmeUrl` points at `docs/sar-readme.md`, which keeps
+the public SAR page to plain Markdown that the SAR renderer handles reliably.
 
 CloudFormation launch installs still require the target account to be allowed
 to deploy the SAR application version through the selected sharing mode. The

@@ -44,6 +44,37 @@ def github_blob_raw_url(repository: str, ref: str, path: str) -> str:
     )
 
 
+def sar_application_url(application_id: str) -> str:
+    parts = application_id.split(":", 5)
+    if len(parts) != 6:
+        raise SystemExit(f"error: invalid SAR application ID '{application_id}'")
+
+    _, _, service, region, account_id, resource = parts
+    if service != "serverlessrepo":
+        raise SystemExit(f"error: application ID is not a SAR ARN: '{application_id}'")
+    if not region or not account_id:
+        raise SystemExit(
+            f"error: SAR application ID is missing region or account: '{application_id}'"
+        )
+    if not resource.startswith("applications/"):
+        raise SystemExit(
+            f"error: SAR application ID is missing applications resource: '{application_id}'"
+        )
+
+    application_name = resource.removeprefix("applications/")
+    if not application_name:
+        raise SystemExit(
+            f"error: SAR application ID is missing application name: '{application_id}'"
+        )
+
+    return (
+        "https://serverlessrepo.aws.amazon.com/applications/"
+        f"{quote(region, safe='')}/"
+        f"{quote(account_id, safe='')}/"
+        f"{quote(application_name, safe='')}"
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Render GitHub Release notes from a release manifest."
@@ -70,6 +101,7 @@ def main() -> None:
     version = require_string(manifest, "version")
     commit = require_string(manifest, "commit")
     application_id = require_string(manifest, "applicationId")
+    application_url = sar_application_url(application_id)
     semantic_version = require_string(manifest, "semanticVersion")
     no_vpc = require_launch_template(manifest, "noVpc")
     vpc = require_launch_template(manifest, "vpc")
@@ -88,6 +120,7 @@ def main() -> None:
         "",
         "## SAR Application",
         "",
+        f"- SAR application: {application_url}",
         f"- Application ID: `{application_id}`",
         f"- Semantic version: `{semantic_version}`",
         f"- Source commit: `{commit}`",

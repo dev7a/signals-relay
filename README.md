@@ -3,10 +3,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](./LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/dev7a/signals-relay?include_prereleases&label=release&style=flat)](https://github.com/dev7a/signals-relay/releases)
 
-Send AWS Application Signals traces where you need them. Signals Relay is a
-serverless AWS pipeline that converts CloudWatch Application Signals
-`aws/spans` log records into OTLP traces and ships them to your observability
-backend, or your own OTel collector.
+Export AWS Application Signals traces to your observability backend. Signals
+Relay is a serverless AWS pipeline that converts CloudWatch Application Signals
+`aws/spans` log records into OTLP traces and sends them to your observability
+backend or OpenTelemetry collector.
 
 <div align="center">
 <picture>
@@ -22,18 +22,16 @@ backend, or your own OTel collector.
 
 ## Who Should Use This
 
-Use Signals Relay when you want a native AWS path for exporting Application
-Signals spans into an OpenTelemetry backend, and you are comfortable operating
-an event-driven pipeline built from CloudWatch Logs, Lambda, Kinesis, SQS, and
-Secrets Manager.
+Use Signals Relay when you want to export Application Signals spans through
+native AWS services and can operate an event-driven pipeline built from
+CloudWatch Logs, Lambda, Kinesis, SQS, and Secrets Manager.
 
-The fastest way to evaluate Signals Relay is with the AWS Serverless
-Application Repository (SAR) application or the versioned CloudFormation
-quick-launch links in each
-[GitHub Release](https://github.com/dev7a/signals-relay/releases). Your target
-account must be authorized to deploy that SAR version through account,
-organization, or public sharing. You only need a source checkout to inspect,
-modify, or publish the application yourself.
+The fastest way to try Signals Relay is with the AWS Serverless Application
+Repository (SAR) application or the versioned CloudFormation quick-launch links
+in each [GitHub Release](https://github.com/dev7a/signals-relay/releases). Your
+target account must be authorized to deploy that SAR version through account,
+organization, or public sharing. Clone the repository only if you want to
+inspect, modify, or publish the application yourself.
 
 ### When Signals Relay Is Not a Fit
 
@@ -82,7 +80,7 @@ The current SAR application is published in `us-east-1`. Full install
 instructions, IaC examples, source deployment, and upgrade guidance live in
 [Deploy](./docs/deploy.md).
 
-## Architecture At A Glance
+## Architecture at a Glance
 
 The application deploys:
 
@@ -111,8 +109,7 @@ failure handling, and tradeoffs.
 
 ## Documentation
 
-- [Docs](./docs/README.md): start from the release install flow and the checks
-  that prove the relay is working
+- [Docs](./docs/README.md): start with install paths and validation checks
 - [Deploy](./docs/deploy.md): install from GitHub Release quick launch, SAR,
   IaC, or source
 - [Operate](./docs/operate.md): confirm traces are moving, diagnose missing
@@ -131,17 +128,17 @@ feedback, and real-world use cases through GitHub issues. The project does not
 accept unsolicited external pull requests; see
 [Contributing](./CONTRIBUTING.md) for the full policy and rationale.
 
-## Release Surfaces
+## What Each Release Includes
 
-Each release gives operators two install surfaces:
+Each release gives operators two ways to install Signals Relay:
 
-- the SAR application in `us-east-1`, which remains the canonical publish path
+- the SAR application in `us-east-1`, which is the primary way to deploy a release
 - versioned CloudFormation quick-launch templates for no-VPC and existing-VPC
   console deployments
 
 The CloudFormation templates deploy the published SAR application. They do not
-replace SAR and do not use a mutable `latest` URL. Maintainer artifacts such as
-the reusable crate package and CloudFormation manifest are covered in
+replace SAR, and they do not use a mutable `latest` URL. Maintainer artifacts
+such as the reusable crate package and CloudFormation manifest are covered in
 [the release guide](./docs/maintainers/release.md).
 
 ## Build and validate from source
