@@ -649,6 +649,9 @@ jobs:
                 verified="true"
                 break
               fi
+
+              compact_policy_json="$(jq -c . <<<"$policy_json")"
+              last_verify_error="Application policy did not contain the expected public sharing statement. Last policy readback: $compact_policy_json"
             else
               last_verify_error="$(cat "$verify_stderr")"
             fi
