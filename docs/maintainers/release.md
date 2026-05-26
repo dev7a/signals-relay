@@ -133,8 +133,9 @@ artifact generation.
 `serverlessrepo put-application-policy`. The workflow verifies that the policy
 contains the public deploy statement before continuing to CloudFormation
 artifact generation. Public SAR sharing requires the application metadata to
-include both `SemanticVersion` and `LicenseUrl`; the workflow validates those
-fields in the packaged template before `sam publish`.
+include both `SemanticVersion` and `LicenseUrl`; the workflow also requires
+`ReadmeUrl` and validates all three fields in the packaged template before
+`sam publish`.
 
 CloudFormation launch installs still require the target account to be allowed
 to deploy the SAR application version through the selected sharing mode. The
