@@ -46,7 +46,7 @@ Metadata:
     Author: dev7a
     SpdxLicenseId: MIT
     LicenseUrl: LICENSE
-    ReadmeUrl: README.md
+    ReadmeUrl: docs/sar-readme.md
     Labels:
       - cloudwatch
       - opentelemetry
