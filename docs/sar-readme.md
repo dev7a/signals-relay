@@ -1,12 +1,12 @@
 # Signals Relay
 
-Signals Relay is a deployable AWS SAM application that converts CloudWatch
-Application Signals `aws/spans` log records into OTLP trace payloads and sends
-them to your observability backend or OpenTelemetry collector.
+Signals Relay is an AWS SAM application that converts CloudWatch Application
+Signals `aws/spans` log records into OTLP trace payloads and sends them to your
+observability backend or OpenTelemetry collector.
 
-Use this Serverless Application Repository page when you want the published
-AWS application. Use the GitHub project when you want source code, design
-docs, or release artifacts.
+Use this Serverless Application Repository page to deploy the published
+application. Use the GitHub project for source code, design docs, and release
+artifacts.
 
 ## Before You Deploy
 
@@ -14,16 +14,16 @@ docs, or release artifacts.
   and Region. The default log group name is `aws/spans`.
 - Create the collector configuration secret in AWS Secrets Manager before the
   stack runs. The default secret name is `signals-relay/secrets/collector`.
-- The collector secret should contain an `endpoint` value and any required
-  request `headers`.
-- The deploy flow creates IAM resources and resource policies. Review the
-  permissions and acknowledge the CloudFormation capability prompts.
+- The collector secret must contain an `endpoint` value and any required request
+  `headers`.
+- Deployment creates IAM resources and resource policies. Review the permissions
+  and acknowledge the CloudFormation capability prompts.
 - Existing VPC deployments need private subnets with outbound HTTPS access to
   Secrets Manager and your OTLP destination.
 
 ## Deployment Options
 
-- Use the orange Deploy button on this page for the SAR deployment flow.
+- Use the Deploy button on this page for SAR deployment.
 - Use the versioned CloudFormation quick-launch templates from the GitHub
   Releases page if you want a guided CloudFormation console launch.
 - Use the full deploy guide for source deploys, upgrades, Terraform, CDK, and
@@ -40,11 +40,11 @@ Signals Relay deploys:
 - OTLP conversion and export to your configured destination
 - alarms and failure handling resources for the event-driven pipeline
 
-This design is useful when you need a native AWS path for exporting Application
-Signals traces and are comfortable operating Kinesis, Lambda, SQS, CloudWatch
-Logs, and Secrets Manager.
+This design fits teams that need a native AWS path for exporting Application
+Signals traces and can operate Kinesis, Lambda, SQS, CloudWatch Logs, and
+Secrets Manager.
 
-## When It Is Not A Fit
+## When Signals Relay Is Not a Fit
 
 Signals Relay may not be the right tool if you need a fully managed trace
 export service, cannot operate the supporting AWS services, cannot tolerate
