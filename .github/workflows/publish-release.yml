@@ -12,7 +12,7 @@ on:
         required: true
         type: string
       share_scope:
-        description: Whether to keep the published SAR app private to the account or share it privately across the AWS Organization
+        description: Whether to keep the published SAR app private, share it with the AWS Organization, or make it public
         required: false
         default: "account"
         type: string
@@ -95,9 +95,9 @@ jobs:
           set -euo pipefail
 
           case "$SHARE_SCOPE" in
-            account|organization) ;;
+            account|organization|public) ;;
             *)
-              echo "::error::share_scope must be either 'account' or 'organization'."
+              echo "::error::share_scope must be 'account', 'organization', or 'public'."
               exit 1
               ;;
           esac
@@ -544,6 +544,123 @@ jobs:
 
           if [[ "$verified" != "true" ]]; then
             echo "::error::Failed to verify the org-wide SAR sharing policy after publish."
+            if [[ -n "$last_verify_error" ]]; then
+              printf '%s\n' "$last_verify_error" >&2
+            fi
+            exit 1
+          fi
+
+      - name: Share the published application publicly
+        if: ${{ inputs.share_scope == 'public' }}
+        shell: bash
+        env:
+          APPLICATION_ID: ${{ steps.sar_application.outputs.application_id }}
+        run: |
+          set -euo pipefail
+
+          cleanup() {
+            local path
+
+            for path in "${policy_stdout:-}" "${policy_stderr:-}" "${apply_stderr:-}" "${verify_stderr:-}"; do
+              if [[ -n "$path" ]]; then
+                rm -f "$path"
+              fi
+            done
+          }
+
+          policy_stdout="$(mktemp)"
+          policy_stderr="$(mktemp)"
+          apply_stderr="$(mktemp)"
+          verify_stderr="$(mktemp)"
+          trap cleanup EXIT
+
+          if aws serverlessrepo get-application-policy \
+            --region "$AWS_REGION" \
+            --application-id "$APPLICATION_ID" \
+            --output json >"$policy_stdout" 2>"$policy_stderr"; then
+            existing_policy_json="$(cat "$policy_stdout")"
+          else
+            policy_error="$(cat "$policy_stderr")"
+            if grep -Eq 'ApplicationPolicy.*NotFound|ResourceNotFound|NotFoundException' <<<"$policy_error"; then
+              existing_policy_json='{"Statements":[]}'
+            else
+              echo "::error::Failed to get existing application policy for $APPLICATION_ID"
+              cat "$policy_stderr" >&2
+              exit 1
+            fi
+          fi
+
+          merged_statements="$(
+            jq -cn \
+              --argjson existing "$existing_policy_json" '
+                (($existing.Statements // [])
+                  | map(select(.StatementId != "share-public")))
+                + [
+                  {
+                    StatementId: "share-public",
+                    Actions: ["Deploy"],
+                    Principals: ["*"]
+                  }
+                ]
+              '
+          )"
+
+          applied="false"
+          last_apply_error=""
+          for _ in 1 2 3 4 5; do
+            if aws serverlessrepo put-application-policy \
+              --region "$AWS_REGION" \
+              --application-id "$APPLICATION_ID" \
+              --statements "$merged_statements" \
+              >/dev/null 2>"$apply_stderr"; then
+              applied="true"
+              break
+            fi
+
+            last_apply_error="$(cat "$apply_stderr")"
+            sleep 5
+          done
+
+          if [[ "$applied" != "true" ]]; then
+            echo "::error::Failed to apply the public SAR sharing policy after publish."
+            if [[ -n "$last_apply_error" ]]; then
+              printf '%s\n' "$last_apply_error" >&2
+            fi
+            exit 1
+          fi
+
+          verified="false"
+          last_verify_error=""
+          for _ in 1 2 3 4 5; do
+            if policy_json="$(aws serverlessrepo get-application-policy \
+                --region "$AWS_REGION" \
+                --application-id "$APPLICATION_ID" \
+                --output json 2>"$verify_stderr")"; then
+              if jq -e '
+                any(.Statements[]?;
+                  .StatementId == "share-public"
+                  and ((.Actions // []) | index("Deploy"))
+                  and (
+                    ((.Principals // []) | index("*"))
+                    or ((.Principals // []) | index(""))
+                  )
+                )
+              ' <<<"$policy_json" >/dev/null; then
+                verified="true"
+                break
+              fi
+
+              compact_policy_json="$(jq -c . <<<"$policy_json")"
+              last_verify_error="Application policy did not contain the expected public sharing statement. Last policy readback: $compact_policy_json"
+            else
+              last_verify_error="$(cat "$verify_stderr")"
+            fi
+
+            sleep 5
+          done
+
+          if [[ "$verified" != "true" ]]; then
+            echo "::error::Failed to verify the public SAR sharing policy after publish."
             if [[ -n "$last_verify_error" ]]; then
               printf '%s\n' "$last_verify_error" >&2
             fi
