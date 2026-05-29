@@ -53,8 +53,9 @@ publish.
 4. The workflow derives the tag as `v<version>`.
 5. The workflow validates that Rust package versions and SAM `SemanticVersion`
    match the tag.
-6. The workflow publishes SAR before creating the Git tag.
-7. After publish succeeds, the workflow creates the tag and GitHub Release.
+6. The workflow creates and pushes the Git tag before `sam publish` so the
+   semantic version is reserved to a single source commit.
+7. After publish succeeds, the workflow creates the GitHub Release.
 
 For organization sharing, the assumed AWS role must allow
 `organizations:DescribeOrganization` and SAR application-policy updates. The
@@ -69,9 +70,10 @@ updates. The workflow applies and verifies a public `Deploy` policy statement.
 Pushing a matching `v*` tag also runs the publish workflow. This path uses
 `share_scope=account`.
 
-Prefer manual workflow dispatch for normal releases because it publishes first
-and creates the tag only after the publish job succeeds. That avoids creating a
-release tag for a version that did not publish.
+Prefer manual workflow dispatch for normal releases because it validates release
+metadata, reserves the version by creating the tag, and then publishes from that
+tag. Reserving the tag before `sam publish` keeps the immutable SAR semantic
+version tied to the Git source tag.
 
 ## Artifact Outputs
 
@@ -158,7 +160,7 @@ CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_RESOURCE_POLICY CAPABILITY_AUTO_E
 
 The workflow fails fast when:
 
-- the requested tag already exists
+- the requested tag already exists or cannot be pushed
 - Rust package versions do not match the release tag
 - SAM `SemanticVersion` does not match the release tag
 - `CFN_ARTIFACT_BUCKET` is missing or is not in `us-east-1`
@@ -166,10 +168,11 @@ The workflow fails fast when:
 - the requested SAR sharing policy cannot be applied or verified
 
 If the workflow fails before `sam publish`, fix the issue and rerun the same
-version. If it fails after SAR publish, inspect SAR, the Git tag, S3 artifacts,
-and the GitHub Release before rerunning. SAR semantic versions are immutable, so
-a partial post-publish failure may require a new version or a targeted manual
-repair rather than a blind rerun.
+version only if the tag was not created; otherwise inspect or delete the reserved
+tag before rerunning. If it fails after SAR publish, inspect SAR, the Git tag, S3
+artifacts, and the GitHub Release before rerunning. SAR semantic versions are
+immutable, so a partial post-publish failure may require a new version or a
+targeted manual repair rather than a blind rerun.
 
 ## Manual SAR Publish
 
@@ -202,6 +205,6 @@ local `public_publish` SAM environment.
    ```
 
 The automated GitHub Actions release remains the preferred path because it also
-validates version parity, creates the tag only after successful publish, uploads
-the CloudFormation launch artifacts, applies and verifies the selected SAR
-sharing policy, and creates the GitHub Release.
+validates version parity, reserves the Git tag before publish, uploads the
+CloudFormation launch artifacts, applies and verifies the selected SAR sharing
+policy, and creates the GitHub Release.
