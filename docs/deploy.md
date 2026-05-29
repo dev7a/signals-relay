@@ -63,30 +63,51 @@ this same secret shape. Headers are optional. In `direct` mode, Signals Relay
 appends `/v1/traces` to the endpoint when the configured path does not already
 end with `/v1/traces`.
 
-Create the secret with the AWS CLI:
+Create a temporary JSON file with restrictive permissions, edit the file to
+replace the placeholder values, and pass the file to the AWS CLI. Do not paste
+real authorization headers into `--secret-string` inline command arguments;
+command-line arguments can be stored in shell history, terminal logs, CI logs,
+or process listings while the command runs. Run the setup block, one AWS CLI
+command, and the cleanup block in the same shell so `$secret_file` remains set.
+
+```bash
+umask 077
+secret_file="$(mktemp)"
+trap 'rm -f "$secret_file"' EXIT
+
+cat > "$secret_file" <<'JSON'
+{
+  "endpoint": "https://example.com",
+  "headers": {
+    "authorization": "Bearer REPLACE_ME"
+  }
+}
+JSON
+
+${EDITOR:-vi} "$secret_file"
+```
+
+Create the secret from the file:
 
 ```bash
 aws secretsmanager create-secret \
   --name signals-relay/secrets/collector \
-  --secret-string '{
-    "endpoint": "https://example.com",
-    "headers": {
-      "authorization": "Bearer REPLACE_ME"
-    }
-  }'
+  --secret-string "file://$secret_file"
 ```
 
-If the secret already exists, update it instead:
+If the secret already exists, update it from the file instead:
 
 ```bash
 aws secretsmanager put-secret-value \
   --secret-id signals-relay/secrets/collector \
-  --secret-string '{
-    "endpoint": "https://example.com",
-    "headers": {
-      "authorization": "Bearer REPLACE_ME"
-    }
-  }'
+  --secret-string "file://$secret_file"
+```
+
+After creating or updating the secret, remove the temporary file:
+
+```bash
+rm -f "$secret_file"
+trap - EXIT
 ```
 
 ## Deploy from GitHub Release quick launch
