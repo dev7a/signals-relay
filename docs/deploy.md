@@ -69,6 +69,8 @@ real authorization headers into `--secret-string` inline command arguments;
 command-line arguments can be stored in shell history, terminal logs, CI logs,
 or process listings while the command runs. Run the setup block, one AWS CLI
 command, and the cleanup block in the same shell so `$secret_file` remains set.
+The setup block installs an `EXIT` trap, so use a fresh shell if the current
+shell already has an `EXIT` trap you need to preserve.
 
 ```bash
 old_umask="$(umask)"
