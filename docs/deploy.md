@@ -82,11 +82,12 @@ aws secretsmanager put-secret-value \
 
 Do not paste real authorization headers into `--secret-string` inline command
 arguments; command-line arguments can be stored in shell history, terminal logs,
-CI logs, or process listings while the command runs. Delete the local JSON file
-after creating or updating the secret:
+CI logs, or process listings while the command runs. Use restrictive file
+permissions for the local JSON file on shared systems. Delete the local JSON
+file after creating or updating the secret:
 
 ```bash
-rm collector-secret.json
+rm -f collector-secret.json
 ```
 
 ## Deploy from GitHub Release quick launch
