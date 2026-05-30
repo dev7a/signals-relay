@@ -46,7 +46,8 @@ stack creates a subscription filter on that log group, but it does not create
 the log group itself. The log group may be empty, but it must exist before
 CloudFormation creates the subscription filter.
 
-Also create the shared Secrets Manager secret in the target account and Region:
+Also create the shared Secrets Manager secret in the target account and Region.
+Save the secret value as a local JSON file such as `collector-secret.json`:
 
 ```json
 {
@@ -63,30 +64,30 @@ this same secret shape. Headers are optional. In `direct` mode, Signals Relay
 appends `/v1/traces` to the endpoint when the configured path does not already
 end with `/v1/traces`.
 
-Create the secret with the AWS CLI:
+Pass the file to the AWS CLI:
 
 ```bash
 aws secretsmanager create-secret \
   --name signals-relay/secrets/collector \
-  --secret-string '{
-    "endpoint": "https://example.com",
-    "headers": {
-      "authorization": "Bearer REPLACE_ME"
-    }
-  }'
+  --secret-string file://collector-secret.json
 ```
 
-If the secret already exists, update it instead:
+If the secret already exists, update it from the file instead:
 
 ```bash
 aws secretsmanager put-secret-value \
   --secret-id signals-relay/secrets/collector \
-  --secret-string '{
-    "endpoint": "https://example.com",
-    "headers": {
-      "authorization": "Bearer REPLACE_ME"
-    }
-  }'
+  --secret-string file://collector-secret.json
+```
+
+Do not paste real authorization headers into `--secret-string` inline command
+arguments; command-line arguments can be stored in shell history, terminal logs,
+CI logs, or process listings while the command runs. Use restrictive file
+permissions for the local JSON file on shared systems. Delete the local JSON
+file after creating or updating the secret:
+
+```bash
+rm -f collector-secret.json
 ```
 
 ## Deploy from GitHub Release quick launch
