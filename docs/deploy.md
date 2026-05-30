@@ -71,9 +71,10 @@ or process listings while the command runs. Run the setup block, one AWS CLI
 command, and the cleanup block in the same shell so `$secret_file` remains set.
 
 ```bash
+old_umask="$(umask)"
 umask 077
-secret_file="$(mktemp)"
-trap 'rm -f "$secret_file"' EXIT
+secret_file="$(mktemp "${TMPDIR:-/tmp}/signals-relay-secret.XXXXXX")"
+trap 'rm -f "$secret_file"; umask "$old_umask"; unset secret_file old_umask' EXIT
 
 cat > "$secret_file" <<'JSON'
 {
@@ -103,11 +104,14 @@ aws secretsmanager put-secret-value \
   --secret-string "file://$secret_file"
 ```
 
-After creating or updating the secret, remove the temporary file:
+After creating or updating the secret, remove the temporary file and restore
+the previous shell umask:
 
 ```bash
 rm -f "$secret_file"
+umask "$old_umask"
 trap - EXIT
+unset secret_file old_umask
 ```
 
 ## Deploy from GitHub Release quick launch
