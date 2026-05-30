@@ -46,7 +46,8 @@ stack creates a subscription filter on that log group, but it does not create
 the log group itself. The log group may be empty, but it must exist before
 CloudFormation creates the subscription filter.
 
-Also create the shared Secrets Manager secret in the target account and Region:
+Also create the shared Secrets Manager secret in the target account and Region.
+Save the secret value as a local JSON file such as `collector-secret.json`:
 
 ```json
 {
@@ -63,39 +64,12 @@ this same secret shape. Headers are optional. In `direct` mode, Signals Relay
 appends `/v1/traces` to the endpoint when the configured path does not already
 end with `/v1/traces`.
 
-Create a temporary JSON file with restrictive permissions, edit the file to
-replace the placeholder values, and pass the file to the AWS CLI. Do not paste
-real authorization headers into `--secret-string` inline command arguments;
-command-line arguments can be stored in shell history, terminal logs, CI logs,
-or process listings while the command runs. Run the setup block, one AWS CLI
-command, and the cleanup block in the same shell so `$secret_file` remains set.
-The setup block installs an `EXIT` trap, so use a fresh shell if the current
-shell already has an `EXIT` trap you need to preserve.
-
-```bash
-old_umask="$(umask)"
-umask 077
-secret_file="$(mktemp "${TMPDIR:-/tmp}/signals-relay-secret.XXXXXX")"
-trap 'rm -f "$secret_file"; umask "$old_umask"; unset secret_file old_umask' EXIT
-
-cat > "$secret_file" <<'JSON'
-{
-  "endpoint": "https://example.com",
-  "headers": {
-    "authorization": "Bearer REPLACE_ME"
-  }
-}
-JSON
-
-${EDITOR:-vi} "$secret_file"
-```
-
-Create the secret from the file:
+Pass the file to the AWS CLI:
 
 ```bash
 aws secretsmanager create-secret \
   --name signals-relay/secrets/collector \
-  --secret-string "file://$secret_file"
+  --secret-string file://collector-secret.json
 ```
 
 If the secret already exists, update it from the file instead:
@@ -103,17 +77,16 @@ If the secret already exists, update it from the file instead:
 ```bash
 aws secretsmanager put-secret-value \
   --secret-id signals-relay/secrets/collector \
-  --secret-string "file://$secret_file"
+  --secret-string file://collector-secret.json
 ```
 
-After creating or updating the secret, remove the temporary file and restore
-the previous shell umask:
+Do not paste real authorization headers into `--secret-string` inline command
+arguments; command-line arguments can be stored in shell history, terminal logs,
+CI logs, or process listings while the command runs. Delete the local JSON file
+after creating or updating the secret:
 
 ```bash
-rm -f "$secret_file"
-umask "$old_umask"
-trap - EXIT
-unset secret_file old_umask
+rm collector-secret.json
 ```
 
 ## Deploy from GitHub Release quick launch
